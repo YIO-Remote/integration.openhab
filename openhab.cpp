@@ -3,7 +3,7 @@
 #include <QJsonArray>
 
 #include "openhab.h"
-#include "../../entities/entity.h"
+#include "../remote-software/sources/entities/entity.h"
 
 OpenHAB::OpenHAB()
 {

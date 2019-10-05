@@ -10,8 +10,8 @@
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 
-#include "../integration.h"
-#include "../integrationinterface.h"
+#include "../remote-software/sources/integrations/integration.h"
+#include "../remote-software/sources/integrations/integrationinterface.h"
 
 class OpenHAB : public Integration, IntegrationInterface
 {
