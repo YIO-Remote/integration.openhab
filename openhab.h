@@ -39,20 +39,20 @@
 #include "../remote-software/sources/notificationsinterface.h"
 #include "../remote-software/sources/entities/mediaplayerinterface.h"
 
-class OpenHABFactory : public PluginInterface
+class OpenHABPlugin : public PluginInterface
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openhab.json")
     Q_INTERFACES(PluginInterface)
 
 public:
-    explicit OpenHABFactory (QObject* parent = nullptr) :
+    explicit OpenHABPlugin (QObject* parent = nullptr) :
         _log("openhab")
     {
         Q_UNUSED(parent)
     }
 
-    virtual ~OpenHABFactory () override
+    virtual ~OpenHABPlugin () override
     {}
 
     void        create         (const QVariantMap& config, QObject *entities, QObject *notifications, QObject* api, QObject *configObj) override;

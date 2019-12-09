@@ -34,7 +34,7 @@
 IntegrationInterface::~IntegrationInterface()
 {}
 
-void OpenHABFactory::create(const QVariantMap &config, QObject *entities, QObject *notifications, QObject *api, QObject *configObj)
+void OpenHABPlugin::create(const QVariantMap &config, QObject *entities, QObject *notifications, QObject *api, QObject *configObj)
 {
     QMap<QObject *, QVariant>   returnData;
     QVariantList                data;
