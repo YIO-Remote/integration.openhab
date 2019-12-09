@@ -212,6 +212,10 @@ void OpenHAB::initializePlayer (const QString& entityId, OHPlayer& player, const
         QString id = channel.value("id").toString();
         if (id == "power")
             _ohPlayerItems.insert (linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
+        else if (id == "control")
+            _ohPlayerItems.insert (linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
+        else if (id == "state")
+            _ohPlayerItems.insert (linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
         else if (id == "mode")
             _ohPlayerItems.insert (linkItem, OHPlayerItem(entityId, MediaPlayerDef::SOURCE));
         else if (id == "volume-percent")
@@ -365,6 +369,10 @@ void OpenHAB::processPlayerItem   (const QJsonObject& item, const QString& name)
                 entity->setState(MediaPlayerDef::ON);
             else if (state == "OFF")
                 entity->setState(MediaPlayerDef::OFF);
+            else if (state == "PLAY")
+                entity->setState(MediaPlayerDef::PLAYING);
+            else if (state == "PAUSE")
+                entity->setState(MediaPlayerDef::IDLE);
             break;
         case MediaPlayerDef::VOLUME:
             entity->updateAttrByIndex(MediaPlayerDef::VOLUME, state.toInt());
