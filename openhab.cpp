@@ -325,7 +325,7 @@ void OpenHAB::processLight (const QJsonObject& item, EntityInterface* entity, bo
         int brightness = item.value("state").toString().toInt();
         bool   on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
-        if (entity->isSupported("BRIGHTNESS"))
+        if (entity->isSupported(LightDef::F_BRIGHTNESS))
             entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
         else
             qCDebug(_log) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
@@ -338,7 +338,7 @@ void OpenHAB::processLight (const QJsonObject& item, EntityInterface* entity, bo
             entity->setState(LightDef::OFF);
         else
             qCDebug(_log) << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
-        if (entity->isSupported("BRIGHTNESS"))
+        if (entity->isSupported(LightDef::F_BRIGHTNESS))
             qCDebug(_log) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
     }
 }
@@ -348,7 +348,7 @@ void OpenHAB::processBlind (const QJsonObject& item, EntityInterface* entity)
     QString state = item.value("state").toString().toUpper();
     bool ok = false;
     int pos = state.toInt(&ok, 10);
-    if (ok && entity->isSupported("POSITION")) {
+    if (ok && entity->isSupported(BlindDef::F_POSITION)) {
         entity->updateAttrByIndex(BlindDef::POSITION, pos);
         entity->setState(pos == 100 ? BlindDef::OPEN : BlindDef::CLOSED);
     }
@@ -403,24 +403,26 @@ const QString* OpenHAB::lookupPlayerItem  (const QString& entityId, MediaPlayerD
     return nullptr;
 }
 
-void OpenHAB::sendCommand(const QString& type, const QString& entity_id, const QString& command, const QVariant& param)
+void OpenHAB::sendCommand(const QString& type, const QString& entity_id, int command, const QVariant& param)
 {
     QString state;
     if (type == "light") {
         ////////////////////////////////////////////////////////////////
         // Light
         ////////////////////////////////////////////////////////////////
-        if (command == "OFF")
-            state = "OFF";
-        else if (command == "ON")
-            state = "ON";
-        else if (command == "OFF")
-            state = "OFF";
-        else if (command == "BRIGHTNESS")
-            state = QString::number(param.toInt());
-        else {
-            qCInfo(_log)  << "Light command" << command << " not supported for "  << entity_id;
-            return;
+        switch (static_cast<LightDef::Commands>(command)) {
+            case LightDef::C_OFF:
+                state = "OFF";
+                break;
+            case LightDef::C_ON:
+                state = "ON";
+                break;
+            case LightDef::C_BRIGHTNESS:
+                state = QString::number(param.toInt());
+                break;
+            default:
+                qCInfo(_log)  << "Light command" << command << " not supported for "  << entity_id;
+                return;
         }
         qCDebug(_log) << "Light command" << command << " - " << state << " for "  << entity_id;
         openHABCommand(entity_id, state);
@@ -430,17 +432,19 @@ void OpenHAB::sendCommand(const QString& type, const QString& entity_id, const Q
         ////////////////////////////////////////////////////////////////
         // Blind
         ////////////////////////////////////////////////////////////////
-        if (command == "OPEN")
-            state = "UP";
-        else if (command == "CLOSE")
-            state = "DOWN";
-        else if (command == "STOP")
+        switch (static_cast<BlindDef::Commands>(command)) {
+            case BlindDef::C_OPEN:
+                state = "UP";
+                break;
+            case BlindDef::C_CLOSE:
+                state = "DOWN";
+                break;
+            case BlindDef::C_STOP:
             state = "STOP";
-        else if (command == "POSITION")
+                break;
+            case BlindDef::C_POSITION:
             state = QString::number(param.toInt());
-        else {
-            qCInfo(_log)  << "Blind command" << command << " not supported for "  << entity_id;
-            return;
+                break;
         }
         qCDebug(_log) << "Blind command" << command << " - " << state << " for "  << entity_id;
         openHABCommand(entity_id, state);
@@ -450,54 +454,57 @@ void OpenHAB::sendCommand(const QString& type, const QString& entity_id, const Q
         // Media Player
         ////////////////////////////////////////////////////////////////
         const QString *ohitemId = nullptr;
-        if (command == "TURNON") {
-            state = "ON";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+        switch (static_cast<MediaPlayerDef::Commands>(command)) {
+            case MediaPlayerDef::C_TURNON:
+                state = "ON";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_TURNOFF:
+                state = "OFF";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_PLAY:
+                state = "PLAY";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_PAUSE:
+                state = "PAUSE";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_STOP:
+                state = "STOP";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_PREVIOUS:
+                state = "PREVIOUS";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_NEXT:
+                state = "NEXT";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
+                break;
+            case MediaPlayerDef::C_VOLUME_SET:
+                state = QString::number(param.toInt());
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
+                break;
+            case MediaPlayerDef::C_VOLUME_UP:
+                state = "UP";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
+                break;
+            case MediaPlayerDef::C_VOLUME_DOWN:
+                state = "UP";
+                ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
+                break;
+            default:
+                qCInfo(_log)    << "Media player command" << command << " not supported for "  << entity_id;
+                return;
         }
-        else if (command == "TURNOFF") {
-            state = "OFF";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "PLAY") {
-            state = "PLAY";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "PAUSE") {
-            state = "PAUSE";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "STOP") {
-            state = "STOP";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "PREVIOUS") {
-            state = "PREVIOUS";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "NEXT") {
-            state = "NEXT";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::STATE);
-        }
-        else if (command == "VOLUME_SET") {
-            state = QString::number(param.toInt());
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
-        }
-        else if (command == "VOLUME_UP") {
-            state = "UP";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
-        }
-        else if (command == "VOLUME_DOWN") {
-            state = "UP";
-            ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
-        }
-
         if (ohitemId == nullptr) {
             qCInfo(_log)    << "Media player command" << command << " not supported for "  << entity_id;
+            return;
         }
-        else {
-            qCDebug(_log)    << "Media player command" << command << " - " << state << " for "  << entity_id;
-            openHABCommand(*ohitemId, state);
-        }
+        qCDebug(_log)    << "Media player command" << command << " - " << state << " for "  << entity_id;
+        openHABCommand(*ohitemId, state);
     }
 }
 
