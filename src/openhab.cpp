@@ -32,49 +32,19 @@
 #include "yio-interface/entities/entityinterface.h"
 #include "yio-interface/entities/lightinterface.h"
 
-IntegrationInterface::~IntegrationInterface() {}
+OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", USE_WORKER_THREAD) {}
 
-void OpenHABPlugin::create(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                           QObject* configObj) {
-    QMap<QObject*, QVariant> returnData;
-    QVariantList             data;
-
-    for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
-        if (iter.key() == "data") {
-            data = iter.value().toList();
-            break;
-        }
-    }
-    for (int i = 0; i < data.length(); i++) {
-        OpenHAB* openhab = new OpenHAB(_log, this);
-        openhab->setup(data[i].toMap(), entities, notifications, api, configObj);
-
-        QVariantMap d = data[i].toMap();
-        d.insert("type", config.value("type").toString());
-        returnData.insert(openhab, d);
-    }
-    if (data.length() > 0) {
-        emit createDone(returnData);
-    }
+Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
+                                              NotificationsInterface* notifications, YioAPIInterface* api,
+                                              ConfigInterface* configObj) {
+    return new OpenHAB(config, entities, notifications, api, configObj, this);
 }
 
-OpenHAB::OpenHAB(QLoggingCategory& log, QObject* parent)
-    : _log(log),
+OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
+                 YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin)
+    : Integration(config, entities, notifications, api, configObj, plugin),
       _pollingInterval(1000),  // default
-      _notifications(nullptr),
       _nam(this) {
-    setParent(parent);
-}
-
-OpenHAB::~OpenHAB() {}
-
-void OpenHAB::setup(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                    QObject* configObj) {
-    Q_UNUSED(api)
-    Q_UNUSED(configObj)
-
-    Integration::setup(config, entities);
-
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "url") {
             _url = iter.value().toString();
@@ -92,8 +62,7 @@ void OpenHAB::setup(const QVariantMap& config, QObject* entities, QObject* notif
     QObject::connect(&_pollingTimer, &QTimer::timeout, this, &OpenHAB::onPollingTimer);
     QObject::connect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, this, &OpenHAB::onNetWorkAccessible);
 
-    _notifications = qobject_cast<NotificationsInterface*>(notifications);
-    qCDebug(_log) << "setup";
+    qCDebug(m_logCategory) << "setup";
 }
 
 void OpenHAB::connect() {
@@ -125,12 +94,12 @@ void OpenHAB::enterStandby() {
 
 void OpenHAB::leaveStandby() { _pollingTimer.setInterval(_pollingInterval); }
 
-void OpenHAB::jsonError(const QString& error) { qCWarning(_log) << "JSON error " << error; }
+void OpenHAB::jsonError(const QString& error) { qCWarning(m_logCategory) << "JSON error " << error; }
 
 void OpenHAB::onPollingTimer() { getItems(); }
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
-    qCInfo(_log) << "network accessibility" << accessibility;
+    qCInfo(m_logCategory) << "network accessibility" << accessibility;
 }
 
 void OpenHAB::getThings() {
@@ -170,16 +139,17 @@ void OpenHAB::processThings(const QJsonDocument& result) {
     }
     int missing = _ohPlayers.count() - countFound;
     if (missing > 0) {
-        _notifications->add(true, "openHAB - players missing : " + QString::number(missing));
+        m_notifications->add(true, "openHAB - players missing : " + QString::number(missing));
         for (QMap<QString, OHPlayer>::iterator i = _ohPlayers.begin(); i != _ohPlayers.end(); ++i) {
             if (!i.value().found) {
-                qCInfo(_log) << "missing player: " << i.key();
+                qCInfo(m_logCategory) << "missing player: " << i.key();
                 EntityInterface* entity = m_entities->getEntityInterface(i.key());
                 entity->setConnected(false);
             }
         }
     }
-    qCInfo(_log) << QString("Got %1 things, %2 players for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
+    qCInfo(m_logCategory)
+        << QString("Got %1 things, %2 players for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
 
     // Now getItems must be called
     getItems(true);
@@ -281,16 +251,17 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     if (allEntities != nullptr) {
         // Check if we have got all entities, disconnect this entities
         for (const QString& entityId : *allEntities) {
-            qCInfo(_log) << "missing: " << entityId;
+            qCInfo(m_logCategory) << "missing: " << entityId;
             entity = m_entities->getEntityInterface(entityId);
             entity->setConnected(false);
         }
         int missing = allEntities->count();
         if (missing > 0) {
-            _notifications->add(true, "openHAB - entities missing : " + QString::number(missing));
+            m_notifications->add(true, "openHAB - entities missing : " + QString::number(missing));
         }
         delete allEntities;
-        qCInfo(_log) << QString("Got %1 items, %2 for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
+        qCInfo(m_logCategory)
+            << QString("Got %1 items, %2 for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
     }
 }
 
@@ -304,7 +275,8 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
     } else if (ohtype == "Rollershutter") {
         processBlind(item, entity);
     } else {
-        qCDebug(_log) << QString("Unsupported openHab type %1 for entity %s").arg(ohtype).arg(entity->entity_id());
+        qCDebug(m_logCategory)
+            << QString("Unsupported openHab type %1 for entity %s").arg(ohtype).arg(entity->entity_id());
     }
 }
 
@@ -316,7 +288,7 @@ void OpenHAB::processLight(const QJsonObject& item, EntityInterface* entity, boo
         if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
             entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
         } else {
-            qCDebug(_log) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
+            qCDebug(m_logCategory) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
         }
     } else {
         QString state = item.value("state").toString().toUpper();
@@ -325,10 +297,11 @@ void OpenHAB::processLight(const QJsonObject& item, EntityInterface* entity, boo
         } else if (state == "OFF") {
             entity->setState(LightDef::OFF);
         } else {
-            qCDebug(_log) << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
+            qCDebug(m_logCategory)
+                << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
         }
         if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
-            qCDebug(_log) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
+            qCDebug(m_logCategory) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
         }
     }
 }
@@ -409,10 +382,10 @@ void OpenHAB::sendCommand(const QString& type, const QString& entity_id, int com
                 state = QString::number(param.toInt());
                 break;
             default:
-                qCInfo(_log) << "Light command" << command << " not supported for " << entity_id;
+                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entity_id;
                 return;
         }
-        qCDebug(_log) << "Light command" << command << " - " << state << " for " << entity_id;
+        qCDebug(m_logCategory) << "Light command" << command << " - " << state << " for " << entity_id;
         openHABCommand(entity_id, state);
     }
 
@@ -434,7 +407,7 @@ void OpenHAB::sendCommand(const QString& type, const QString& entity_id, int com
                 state = QString::number(param.toInt());
                 break;
         }
-        qCDebug(_log) << "Blind command" << command << " - " << state << " for " << entity_id;
+        qCDebug(m_logCategory) << "Blind command" << command << " - " << state << " for " << entity_id;
         openHABCommand(entity_id, state);
     }
     if (type == "media_player") {
@@ -484,14 +457,14 @@ void OpenHAB::sendCommand(const QString& type, const QString& entity_id, int com
                 ohitemId = lookupPlayerItem(entity_id, MediaPlayerDef::VOLUME);
                 break;
             default:
-                qCInfo(_log) << "Media player command" << command << " not supported for " << entity_id;
+                qCInfo(m_logCategory) << "Media player command" << command << " not supported for " << entity_id;
                 return;
         }
         if (ohitemId == nullptr) {
-            qCInfo(_log) << "Media player command" << command << " not supported for " << entity_id;
+            qCInfo(m_logCategory) << "Media player command" << command << " not supported for " << entity_id;
             return;
         }
-        qCDebug(_log) << "Media player command" << command << " - " << state << " for " << entity_id;
+        qCDebug(m_logCategory) << "Media player command" << command << " - " << state << " for " << entity_id;
         openHABCommand(*ohitemId, state);
     }
 }

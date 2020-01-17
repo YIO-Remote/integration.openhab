@@ -36,39 +36,38 @@
 #include "yio-interface/notificationsinterface.h"
 #include "yio-interface/plugininterface.h"
 #include "yio-plugin/integration.h"
+#include "yio-plugin/plugin.h"
 
-class OpenHABPlugin : public PluginInterface {
+const bool USE_WORKER_THREAD = false;
+
+class OpenHABPlugin : public Plugin {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openhab.json")
     Q_INTERFACES(PluginInterface)
+    Q_PLUGIN_METADATA(IID "YIO.PluginInterface" FILE "openhab.json")
 
  public:
-    explicit OpenHABPlugin(QObject* parent = nullptr) : _log("openhab") { Q_UNUSED(parent) }
+    OpenHABPlugin();
 
-    ~OpenHABPlugin() override {}
-
-    void create(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                QObject* configObj) override;
-    void setLogEnabled(QtMsgType msgType, bool enable) override { _log.setEnabled(msgType, enable); }
-
- private:
-    QLoggingCategory _log;
+    // Plugin interface
+ protected:
+    Integration* createIntegration(const QVariantMap& config, EntitiesInterface* entities,
+                                   NotificationsInterface* notifications, YioAPIInterface* api,
+                                   ConfigInterface* configObj) override;
 };
 
 class OpenHAB : public Integration {
     Q_OBJECT
 
  public:
-    explicit OpenHAB(QLoggingCategory& log, QObject* parent = nullptr);  // NOLINT we need a non-const reference
-    ~OpenHAB() override;
+    explicit OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
+                     YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
-    Q_INVOKABLE void setup(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                           QObject* configObj);
-    void             connect() override;
-    void             disconnect() override;
-    void             leaveStandby() override;
-    void             enterStandby() override;
-    void sendCommand(const QString& type, const QString& entity_id, int command, const QVariant& param) override;
+    Q_INVOKABLE void connect() override;
+    Q_INVOKABLE void disconnect() override;
+    Q_INVOKABLE void leaveStandby() override;
+    Q_INVOKABLE void enterStandby() override;
+    Q_INVOKABLE void sendCommand(const QString& type, const QString& entity_id, int command,
+                                 const QVariant& param) override;
 
  private slots:  // NOLINT open issue: https://github.com/cpplint/cpplint/pull/99
     void onPollingTimer();
@@ -105,10 +104,9 @@ class OpenHAB : public Integration {
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
 
-    QLoggingCategory&              _log;
+ private:
     QTimer                         _pollingTimer;
     int                            _pollingInterval;
-    NotificationsInterface*        _notifications;
     QString                        _url;
     QNetworkAccessManager          _nam;
     QList<EntityInterface*>        _myEntities;       // Entities of this integration
