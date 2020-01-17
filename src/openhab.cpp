@@ -34,8 +34,8 @@
 
 IntegrationInterface::~IntegrationInterface() {}
 
-void OpenHABPlugin::create(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                           QObject* configObj) {
+void OpenHABPlugin::create(const QVariantMap& config, EntitiesInterface* entities,
+                           NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj) {
     QMap<QObject*, QVariant> returnData;
     QVariantList             data;
 
@@ -68,8 +68,8 @@ OpenHAB::OpenHAB(QLoggingCategory& log, QObject* parent)
 
 OpenHAB::~OpenHAB() {}
 
-void OpenHAB::setup(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                    QObject* configObj) {
+void OpenHAB::setup(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
+                    YioAPIInterface* api, ConfigInterface* configObj) {
     Q_UNUSED(api)
     Q_UNUSED(configObj)
 
@@ -92,7 +92,7 @@ void OpenHAB::setup(const QVariantMap& config, QObject* entities, QObject* notif
     QObject::connect(&_pollingTimer, &QTimer::timeout, this, &OpenHAB::onPollingTimer);
     QObject::connect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, this, &OpenHAB::onNetWorkAccessible);
 
-    _notifications = qobject_cast<NotificationsInterface*>(notifications);
+    _notifications = notifications;
     qCDebug(_log) << "setup";
 }
 

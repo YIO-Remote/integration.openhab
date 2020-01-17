@@ -47,8 +47,8 @@ class OpenHABPlugin : public PluginInterface {
 
     ~OpenHABPlugin() override {}
 
-    void create(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                QObject* configObj) override;
+    void create(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
+                YioAPIInterface* api, ConfigInterface* configObj) override;
     void setLogEnabled(QtMsgType msgType, bool enable) override { _log.setEnabled(msgType, enable); }
 
  private:
@@ -62,8 +62,8 @@ class OpenHAB : public Integration {
     explicit OpenHAB(QLoggingCategory& log, QObject* parent = nullptr);  // NOLINT we need a non-const reference
     ~OpenHAB() override;
 
-    Q_INVOKABLE void setup(const QVariantMap& config, QObject* entities, QObject* notifications, QObject* api,
-                           QObject* configObj);
+    Q_INVOKABLE void setup(const QVariantMap& config, EntitiesInterface* entities,
+                           NotificationsInterface* notifications, YioAPIInterface* api, ConfigInterface* configObj);
     void             connect() override;
     void             disconnect() override;
     void             leaveStandby() override;
