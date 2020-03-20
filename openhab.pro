@@ -1,3 +1,7 @@
+# Plugin VERSION
+OH_VERSION = $$system(git describe --match "v[0-9]*" --tags HEAD --always)
+DEFINES += PLUGIN_VERSION=\\\"$$OH_VERSION\\\"
+
 TEMPLATE  = lib
 CONFIG   += plugin
 QT       += core quick network
@@ -19,6 +23,9 @@ isEmpty(INTG_LIB_PATH) {
     error( "Cannot find the yio-plugin-lib.pri file!" )
 }
 
+QMAKE_SUBSTITUTES += openhab.json.in
+# output path must be included for the output file from QMAKE_SUBSTITUTES
+INCLUDEPATH += $$OUT_PWD
 HEADERS  += src/openhab.h
 SOURCES  += src/openhab.cpp
 TARGET    = openhab

@@ -32,11 +32,13 @@
 #include "yio-interface/entities/entityinterface.h"
 #include "yio-interface/entities/lightinterface.h"
 
-OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", USE_WORKER_THREAD) {}
+OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", NO_WORKER_THREAD) {}
 
 Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
                                               NotificationsInterface* notifications, YioAPIInterface* api,
                                               ConfigInterface* configObj) {
+    qCInfo(m_logCategory) << "Creating OpenHAB integration plugin" << PLUGIN_VERSION;
+
     return new OpenHAB(config, entities, notifications, api, configObj, this);
 }
 
