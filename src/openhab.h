@@ -62,14 +62,14 @@ class OpenHAB : public Integration {
     explicit OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
                      YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin);
 
-    Q_INVOKABLE void connect() override;
-    Q_INVOKABLE void disconnect() override;
-    Q_INVOKABLE void leaveStandby() override;
-    Q_INVOKABLE void enterStandby() override;
-    Q_INVOKABLE void sendCommand(const QString& type, const QString& entity_id, int command,
-                                 const QVariant& param) override;
+    void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
 
  private slots:  // NOLINT open issue: https://github.com/cpplint/cpplint/pull/99
+    void connect() override;
+    void disconnect() override;
+    void leaveStandby() override;
+    void enterStandby() override;
+
     void onPollingTimer();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
