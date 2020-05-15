@@ -101,7 +101,8 @@ void OpenHAB::streamReceived() {
         if (entity != nullptr) {
             qCDebug(m_logCategory) << "Debug: " + data;
 
-            QString value = (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+            QString value =
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
             if (entity->type() == "light") {
@@ -110,7 +111,8 @@ void OpenHAB::streamReceived() {
                 processBlind(value, entity);
             }
         } else if (_ohPlayerItems.contains(name)) {
-            QString value = (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+            QString value =
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             processPlayerItem(value, name);
         }
     }
