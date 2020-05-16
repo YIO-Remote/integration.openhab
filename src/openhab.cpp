@@ -192,8 +192,7 @@ void OpenHAB::connect() {
     _wasDisconnected = false;
     _standby = false;
 
-    // connect to the SSE source
-    startSse();
+
 }
 
 void OpenHAB::disconnect() {
@@ -335,7 +334,8 @@ void OpenHAB::getItems(bool first) {
         if (first) {
             // called during connect
             setState(CONNECTED);
-            _pollingTimer.start();
+            // connect to the SSE source
+            startSse();
         }
         processItems(doc, first);
     });
