@@ -70,6 +70,9 @@ class OpenHAB : public Integration {
     void leaveStandby() override;
     void enterStandby() override;
 
+    void streamFinished(QNetworkReply *reply);
+    void streamReceived();
+    void onSseTimeout();
     void onPollingTimer();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
@@ -89,15 +92,17 @@ class OpenHAB : public Integration {
         MediaPlayerDef::Attributes attribute;
     };
 
+    void startSse();
+
     void getThings();
     void getItems(bool first = false);
     void jsonError(const QString& error);
     void processThings(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
     void processItem(const QJsonObject& item, EntityInterface* entity);
-    void processPlayerItem(const QJsonObject& item, const QString& name);
-    void processLight(const QJsonObject& item, EntityInterface* entity, bool isDimmer);
-    void processBlind(const QJsonObject& item, EntityInterface* entity);
+    void processPlayerItem(const QString& item, const QString& name);
+    void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
+    void processBlind(const QString& value, EntityInterface* entity);
     void initializePlayer(const QString& entityId, OHPlayer& player,  // NOLINT we need a non-const reference
                           const QJsonObject& json);
     void openHABCommand(const QString& itemId, const QString& state);
@@ -105,12 +110,18 @@ class OpenHAB : public Integration {
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
 
  private:
+    QNetworkAccessManager          _sseNetworkManager;
+    QNetworkReply*                 _sseReply;
+    QTimer*                        _sseReconnectTimer;
     QTimer                         _pollingTimer;
-    int                            _pollingInterval;
     QString                        _url;
     QNetworkAccessManager          _nam;
     QList<EntityInterface*>        _myEntities;       // Entities of this integration
     QMap<QString, OHConfiguration> _ohConfiguration;  // OpenHAB items configuration
     QMap<QString, OHPlayer>        _ohPlayers;        // YIO player entities
     QMap<QString, OHPlayerItem>    _ohPlayerItems;    // OpenHAB items associated with player
+    int                            _tries;
+    bool                           _userDisconnect;
+    bool                           _wasDisconnected;
+    bool                           _standby;
 };

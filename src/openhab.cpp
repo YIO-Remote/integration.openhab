@@ -44,27 +44,127 @@ Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, Entitie
 
 OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
                  YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin)
-    : Integration(config, entities, notifications, api, configObj, plugin),
-      _pollingInterval(1000),  // default
-      _nam(this) {
+    : Integration(config, entities, notifications, api, configObj, plugin), _sseNetworkManager(), _nam(this) {
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "url") {
             _url = iter.value().toString();
-        } else if (iter.key() == "polling_interval") {
-            _pollingInterval = iter.value().toInt();
         }
     }
     if (!_url.endsWith('/')) {
         _url += '/';
     }
+
+    _sseReconnectTimer = new QTimer(this);
+    _sseReconnectTimer->setSingleShot(true);
+    _sseReconnectTimer->setInterval(2000);
+    _sseReconnectTimer->stop();
+
     _pollingTimer.setSingleShot(false);
-    _pollingTimer.setInterval(_pollingInterval);
-    _pollingTimer.stop();
+    _pollingTimer.setInterval(1000 * 60);  // 1 minute
+
+    QObject::connect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
+    QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
 
     QObject::connect(&_pollingTimer, &QTimer::timeout, this, &OpenHAB::onPollingTimer);
     QObject::connect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, this, &OpenHAB::onNetWorkAccessible);
 
     qCDebug(m_logCategory) << "setup";
+}
+
+void OpenHAB::streamReceived() {
+    QByteArray     rawData = _sseReply->readAll();
+    QByteArrayList splitted = rawData.split('\n');
+
+    for (QByteArray data : splitted) {
+        if ((data.length() == 0) || (data.startsWith("event: message"))) {
+            continue;
+        }
+
+        data = data.replace("\"{", "{").replace("}\"", "}").replace("\\\"", "\"");
+
+        QJsonParseError parseerror;
+        // remove the message start passage, because it is no valid JSON
+        QJsonDocument doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
+        if (parseerror.error != QJsonParseError::NoError) {
+            qCCritical(m_logCategory) << "SSE JSON error:" << parseerror.errorString();
+            continue;
+        }
+
+        QVariantMap map = doc.toVariant().toMap();
+        // only process state changes
+        if (!(map.value("topic").toString().endsWith("statechanged"))) continue;
+
+        // get item name from the topic string
+        // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
+        QString name = map.value("topic").toString().split('/')[2];
+
+        EntityInterface* entity = m_entities->getEntityInterface(name);
+        if (entity != nullptr) {
+            QString value =
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+            // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
+            // entity library
+            if (entity->type() == "light") {
+                processLight(value, entity, false, false);
+            } else if (entity->type() == "blind") {
+                processBlind(value, entity);
+            }
+        } else if (_ohPlayerItems.contains(name)) {
+            QString value =
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+            processPlayerItem(value, name);
+        }
+    }
+
+    if (_wasDisconnected) {
+        _wasDisconnected = false;
+        getItems();
+    }
+}
+
+void OpenHAB::streamFinished(QNetworkReply* reply) {
+    reply->abort();
+    _wasDisconnected = true;
+
+    if (_userDisconnect == false && _standby == false) {
+        qCDebug(m_logCategory) << "Lost SSE connection to OpenHab";
+        _sseReconnectTimer->start();
+    }
+}
+
+void OpenHAB::onSseTimeout() {
+    if (_tries == 3) {
+        disconnect();
+
+        qCCritical(m_logCategory) << "Cannot connect to OpenHab: retried 3 times connecting to" << _url;
+        QObject* param = this;
+
+        m_notifications->add(true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                             [](QObject* param) {
+                                 Integration* i = qobject_cast<Integration*>(param);
+                                 i->connect();
+                             },
+                             param);
+
+        _tries = 0;
+    } else {
+        startSse();
+        qCDebug(m_logCategory) << "Try to reconnect the OpenHab SSE connection";
+
+        _tries++;
+    }
+}
+
+void OpenHAB::startSse() {
+    QNetworkRequest request(_url + "events");
+    request.setRawHeader(QByteArray("Accept"), QByteArray("text/event-stream"));
+    request.setHeader(QNetworkRequest::UserAgentHeader, "Yio Remote OpenHAB Plugin");
+    request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
+    request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
+                         QNetworkRequest::AlwaysNetwork);  // Events shouldn't be cached
+
+    _sseReply = _sseNetworkManager.get(request);
+    QObject::connect(_sseReply, &QNetworkReply::readyRead, this, &OpenHAB::streamReceived);
 }
 
 void OpenHAB::connect() {
@@ -83,18 +183,44 @@ void OpenHAB::connect() {
     } else {
         getItems(true);
     }
+
+    _tries = 0;
+    _userDisconnect = false;
+    _wasDisconnected = false;
+    _standby = false;
+
+    // connect to the SSE source
+    startSse();
 }
 
 void OpenHAB::disconnect() {
+    _userDisconnect = true;
+
+    if (_sseReply->isRunning()) {
+        _sseReply->close();
+    }
+
     _pollingTimer.stop();
+    _sseReconnectTimer->stop();
+
     setState(DISCONNECTED);
 }
 
 void OpenHAB::enterStandby() {
-    _pollingTimer.setInterval(1000 * 60);  // 1 minute
+    _standby = true;
+
+    if (_sseReply->isRunning()) {
+        _sseReply->close();
+    }
+    _pollingTimer.start();
 }
 
-void OpenHAB::leaveStandby() { _pollingTimer.setInterval(_pollingInterval); }
+void OpenHAB::leaveStandby() {
+    _standby = false;
+
+    _pollingTimer.stop();
+    startSse();
+}
 
 void OpenHAB::jsonError(const QString& error) { qCWarning(m_logCategory) << "JSON error " << error; }
 
@@ -128,7 +254,7 @@ void OpenHAB::processThings(const QJsonDocument& result) {
     QJsonArray array = result.array();
     for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
         QJsonObject item = i->toObject();
-        QString     uid  = item.value("UID").toString();
+        QString     uid = item.value("UID").toString();
         countAll++;
         if (_ohPlayers.contains(uid)) {
             countFound++;
@@ -162,14 +288,14 @@ void OpenHAB::initializePlayer(const QString& entityId, OHPlayer& player, const 
 
     QJsonArray channels = json.value("channels").toArray();
     for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
-        QJsonObject channel     = i->toObject();
+        QJsonObject channel = i->toObject();
         QJsonArray  linkedItems = channel.value("linkedItems").toArray();
         if (linkedItems.count() == 0) {
             continue;
         }
 
         QString linkItem = linkedItems[0].toString();
-        QString id       = channel.value("id").toString();
+        QString id = channel.value("id").toString();
         if (id == "power") {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
         } else if (id == "control") {
@@ -215,7 +341,7 @@ void OpenHAB::getItems(bool first) {
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int              countFound = 0, countAll = 0;
     QSet<QString>*   allEntities = nullptr;
-    EntityInterface* entity      = nullptr;
+    EntityInterface* entity = nullptr;
 
     if (first) {
         // Build a set of integrations entities (exclude media players)
@@ -245,7 +371,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         } else {
             // try player
             if (_ohPlayerItems.contains(name)) {
-                processPlayerItem(item, name);
+                processPlayerItem(item.value("state").toString(), name);
             }
         }
     }
@@ -271,21 +397,26 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
     Q_ASSERT(entity != nullptr);
     QString ohtype = item.value("type").toString();
     if (ohtype == "Dimmer") {
-        processLight(item, entity, true);
+        processLight(item.value("state").toString(), entity, true);
     } else if (ohtype == "Switch" && entity->type() == "light") {
-        processLight(item, entity, false);
+        processLight(item.value("state").toString(), entity, false);
     } else if (ohtype == "Rollershutter") {
-        processBlind(item, entity);
+        processBlind(item.value("state").toString(), entity);
     } else {
         qCDebug(m_logCategory)
             << QString("Unsupported openHab type %1 for entity %s").arg(ohtype).arg(entity->entity_id());
     }
 }
 
-void OpenHAB::processLight(const QJsonObject& item, EntityInterface* entity, bool isDimmer) {
+void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo) {
+    int  brightness;
+    bool isInt;
+
+    brightness = value.toInt(&isInt);
+    if (!hasValidDimmerInfo) isDimmer = isInt;
     if (isDimmer) {
-        int  brightness = item.value("state").toString().toInt();
-        bool on         = brightness == 100;
+        // int  brightness = value.toInt();
+        bool on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
         if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
             entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
@@ -293,7 +424,7 @@ void OpenHAB::processLight(const QJsonObject& item, EntityInterface* entity, boo
             qCDebug(m_logCategory) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
         }
     } else {
-        QString state = item.value("state").toString().toUpper();
+        QString state = value.toUpper();
         if (state == "ON") {
             entity->setState(LightDef::ON);
         } else if (state == "OFF") {
@@ -308,10 +439,10 @@ void OpenHAB::processLight(const QJsonObject& item, EntityInterface* entity, boo
     }
 }
 
-void OpenHAB::processBlind(const QJsonObject& item, EntityInterface* entity) {
-    QString state = item.value("state").toString().toUpper();
-    bool    ok    = false;
-    int     pos   = state.toInt(&ok, 10);
+void OpenHAB::processBlind(const QString& value, EntityInterface* entity) {
+    QString state = value.toUpper();
+    bool    ok = false;
+    int     pos = state.toInt(&ok, 10);
     if (ok && entity->isSupported(BlindDef::F_POSITION)) {
         entity->updateAttrByIndex(BlindDef::POSITION, pos);
         entity->setState(pos == 100 ? BlindDef::OPEN : BlindDef::CLOSED);
@@ -322,10 +453,10 @@ void OpenHAB::processBlind(const QJsonObject& item, EntityInterface* entity) {
     }
 }
 
-void OpenHAB::processPlayerItem(const QJsonObject& item, const QString& name) {
+void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
     OHPlayerItem     playerItem = _ohPlayerItems[name];
-    QString          state      = item.value("state").toString().toUpper();
-    EntityInterface* entity     = m_entities->getEntityInterface(playerItem.playerId);
+    QString          state = value.toUpper();
+    EntityInterface* entity = m_entities->getEntityInterface(playerItem.playerId);
     switch (playerItem.attribute) {
         case MediaPlayerDef::STATE:
             if (state == "ON") {
@@ -419,43 +550,43 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
         const QString* ohitemId = nullptr;
         switch (static_cast<MediaPlayerDef::Commands>(command)) {
             case MediaPlayerDef::C_TURNON:
-                state    = "ON";
+                state = "ON";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_TURNOFF:
-                state    = "OFF";
+                state = "OFF";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_PLAY:
-                state    = "PLAY";
+                state = "PLAY";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_PAUSE:
-                state    = "PAUSE";
+                state = "PAUSE";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_STOP:
-                state    = "STOP";
+                state = "STOP";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_PREVIOUS:
-                state    = "PREVIOUS";
+                state = "PREVIOUS";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_NEXT:
-                state    = "NEXT";
+                state = "NEXT";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::STATE);
                 break;
             case MediaPlayerDef::C_VOLUME_SET:
-                state    = QString::number(param.toInt());
+                state = QString::number(param.toInt());
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::VOLUME);
                 break;
             case MediaPlayerDef::C_VOLUME_UP:
-                state    = "UP";
+                state = "UP";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::VOLUME);
                 break;
             case MediaPlayerDef::C_VOLUME_DOWN:
-                state    = "UP";
+                state = "UP";
                 ohitemId = lookupPlayerItem(entityId, MediaPlayerDef::VOLUME);
                 break;
             default:
