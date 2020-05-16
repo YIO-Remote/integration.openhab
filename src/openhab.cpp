@@ -502,6 +502,12 @@ void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
         case MediaPlayerDef::MEDIATITLE:
             entity->updateAttrByIndex(MediaPlayerDef::MEDIATITLE, state);
             break;
+        case MediaPlayerDef::MEDIADURATION:
+            entity->updateAttrByIndex(MediaPlayerDef::MEDIADURATION, state);
+            break;
+        case MediaPlayerDef::MEDIAPROGRESS:
+            entity->updateAttrByIndex(MediaPlayerDef::MEDIAPROGRESS, state);
+            break;
         default:
             break;
     }
