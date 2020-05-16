@@ -191,8 +191,6 @@ void OpenHAB::connect() {
     _userDisconnect = false;
     _wasDisconnected = false;
     _standby = false;
-
-
 }
 
 void OpenHAB::disconnect() {
