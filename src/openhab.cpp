@@ -307,14 +307,18 @@ void OpenHAB::initializePlayer(const QString& entityId, OHPlayer& player, const 
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
         } else if (id == "mode") {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::SOURCE));
-        } else if (id == "volume-percent") {
+        } else if ((id == "volume") || (id == "volume-percent")) {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::VOLUME));
         } else if (id == "mute") {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MUTED));
-        } else if (id == "play-info-name") {
+        } else if ((id == "artist") || (id == "play-info-name")) {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIAARTIST));
-        } else if (id == "play-info-text") {
+        } else if ((id == "title") || (id == "play-info-text")) {
             _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIATITLE));
+        } else if (id == "currentPlayingTime") {
+            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIAPROGRESS));
+        } else if (id == "duration") {
+            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIADURATION));
         }
     }
 }
