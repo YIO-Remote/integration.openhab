@@ -200,7 +200,7 @@ void OpenHAB::disconnect() {
     _userDisconnect = true;
 
     if (_sseReply->isRunning()) {
-        _sseReply->close();
+        _sseReply->abort();
     }
 
     _pollingTimer.stop();
@@ -213,7 +213,7 @@ void OpenHAB::enterStandby() {
     _standby = true;
 
     if (_sseReply->isRunning()) {
-        _sseReply->close();
+        _sseReply->abort();
     }
     _pollingTimer.start();
 }
