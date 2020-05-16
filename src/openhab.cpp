@@ -75,9 +75,10 @@ void OpenHAB::streamReceived() {
     QByteArray     rawData = _sseReply->readAll();
     QByteArrayList splitted = rawData.split('\n');
 
-    foreach (QByteArray data, splitted) {
-        if (data.length() == 0) continue;
-        if (data.startsWith("event: message")) continue;
+    for (QByteArray data : splitted) {
+        if ((data.length() == 0) || (data.startsWith("event: message"))) {
+            continue;
+        }
 
         data = data.replace("\"{", "{").replace("}\"", "}").replace("\\\"", "\"");
 
@@ -99,8 +100,6 @@ void OpenHAB::streamReceived() {
 
         EntityInterface* entity = m_entities->getEntityInterface(name);
         if (entity != nullptr) {
-            qCDebug(m_logCategory) << "Debug: " + data;
-
             QString value =
                 (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
@@ -117,7 +116,7 @@ void OpenHAB::streamReceived() {
         }
     }
 
-    if (_wasDisconnected == true) {
+    if (_wasDisconnected) {
         _wasDisconnected = false;
         getItems();
     }
@@ -197,7 +196,9 @@ void OpenHAB::connect() {
 void OpenHAB::disconnect() {
     _userDisconnect = true;
 
-    if (_sseReply->isRunning()) _sseReply->close();
+    if (_sseReply->isRunning()) {
+        _sseReply->close();
+    }
 
     _pollingTimer.stop();
     _sseReconnectTimer->stop();
@@ -208,7 +209,9 @@ void OpenHAB::disconnect() {
 void OpenHAB::enterStandby() {
     _standby = true;
 
-    if (_sseReply->isRunning()) _sseReply->close();
+    if (_sseReply->isRunning()) {
+        _sseReply->close();
+    }
     _pollingTimer.start();
 }
 
