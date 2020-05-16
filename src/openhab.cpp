@@ -31,6 +31,7 @@
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/entityinterface.h"
 #include "yio-interface/entities/lightinterface.h"
+#include "yio-interface/entities/switchinterface.h"
 
 OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", NO_WORKER_THREAD) {}
 
@@ -108,6 +109,8 @@ void OpenHAB::streamReceived() {
                 processLight(value, entity, false, false);
             } else if (entity->type() == "blind") {
                 processBlind(value, entity);
+            } else if (entity->type() == "switch") {
+                processSwitch(value, entity);
             }
         } else if (_ohPlayerItems.contains(name)) {
             QString value =
@@ -400,6 +403,8 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
         processLight(item.value("state").toString(), entity, true);
     } else if (ohtype == "Switch" && entity->type() == "light") {
         processLight(item.value("state").toString(), entity, false);
+    } else if (ohtype == "Switch" && entity->type() == "switch") {
+        processSwitch(item.value("state").toString(), entity);
     } else if (ohtype == "Rollershutter") {
         processBlind(item.value("state").toString(), entity);
     } else {
@@ -450,6 +455,15 @@ void OpenHAB::processBlind(const QString& value, EntityInterface* entity) {
         entity->setState(BlindDef::OPEN);
     } else if (state == "OFF") {
         entity->setState(BlindDef::CLOSED);
+    }
+}
+
+void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
+    QString state = value.toUpper();
+    if (state == "ON") {
+        entity->setState(SwitchDef::ON);
+    } else {
+        entity->setState(SwitchDef::OFF);
     }
 }
 
@@ -520,9 +534,18 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
         }
         qCDebug(m_logCategory) << "Light command" << command << " - " << state << " for " << entityId;
         openHABCommand(entityId, state);
-    }
-
-    if (type == "blind") {
+    } else if (type == "switch") {
+        ////////////////////////////////////////////////////////////////
+        // Switch
+        ////////////////////////////////////////////////////////////////
+        if (command == SwitchDef::C_OFF) {
+            state = "OFF";
+        } else if (command == SwitchDef::C_ON) {
+            state = "ON";
+        }
+        qCDebug(m_logCategory) << "Switch command" << command << " - " << state << " for " << entityId;
+        openHABCommand(entityId, state);
+    } else if (type == "blind") {
         ////////////////////////////////////////////////////////////////
         // Blind
         ////////////////////////////////////////////////////////////////
@@ -542,8 +565,7 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
         }
         qCDebug(m_logCategory) << "Blind command" << command << " - " << state << " for " << entityId;
         openHABCommand(entityId, state);
-    }
-    if (type == "media_player") {
+    } else if (type == "media_player") {
         ////////////////////////////////////////////////////////////////
         // Media Player
         ////////////////////////////////////////////////////////////////

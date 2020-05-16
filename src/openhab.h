@@ -103,6 +103,7 @@ class OpenHAB : public Integration {
     void processPlayerItem(const QString& item, const QString& name);
     void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
     void processBlind(const QString& value, EntityInterface* entity);
+    void processSwitch(const QString& value, EntityInterface* entity);
     void initializePlayer(const QString& entityId, OHPlayer& player,  // NOLINT we need a non-const reference
                           const QJsonObject& json);
     void openHABCommand(const QString& itemId, const QString& state);
