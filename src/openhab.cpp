@@ -364,6 +364,20 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         QJsonObject item = i->toObject();
         QString     name = item.value("name").toString();
         countAll++;
+
+        // add entity to the discovered entity list
+        QString type = item.value("type").toString();
+        if (type == "Dimmer") {
+            QStringList features("BRIGHTNESS");
+            addAvailableEntity(name, "light", integrationId(), item.value("label").toString(), features);
+        } else if (type == "Switch") {
+            QStringList features("POWER");
+            addAvailableEntity(name, "switch", integrationId(), item.value("label").toString(), features);
+        } else if (type == "Rollershutter") {
+            QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
+            addAvailableEntity(name, "blind", integrationId(), item.value("label").toString(), features);
+        }
+
         entity = m_entities->getEntityInterface(name);
         if (entity != nullptr) {
             countFound++;
