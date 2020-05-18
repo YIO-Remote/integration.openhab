@@ -21,6 +21,7 @@
  *****************************************************************************/
 
 #include "openhab.h"
+#include "openhab_channelmappings.h"
 
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -31,6 +32,7 @@
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/entityinterface.h"
 #include "yio-interface/entities/lightinterface.h"
+#include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/entities/switchinterface.h"
 
 OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", NO_WORKER_THREAD) {}
@@ -296,26 +298,8 @@ void OpenHAB::initializePlayer(const QString& entityId, OHPlayer& player, const 
 
         QString linkItem = linkedItems[0].toString();
         QString id = channel.value("id").toString();
-        if (id == "power") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
-        } else if (id == "control") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
-        } else if (id == "state") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::STATE));
-        } else if (id == "mode") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::SOURCE));
-        } else if ((id == "volume") || (id == "volume-percent")) {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::VOLUME));
-        } else if (id == "mute") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MUTED));
-        } else if ((id == "artist") || (id == "play-info-name")) {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIAARTIST));
-        } else if ((id == "title") || (id == "play-info-text")) {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIATITLE));
-        } else if (id == "currentPlayingTime") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIAPROGRESS));
-        } else if (id == "duration") {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerDef::MEDIADURATION));
+        if (MediaPlayerChannels::channels.contains(id)) {
+            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerChannels::channels[id]));
         }
     }
 }
@@ -341,6 +325,18 @@ void OpenHAB::getItems(bool first) {
         }
         processItems(doc, first);
     });
+}
+
+QJsonObject findValueFromJsonArray(QJsonArray arr, QString key, QString val, bool caseSensitive) {
+    val = caseSensitive ? val : val.toLower();
+    for (QJsonArray::iterator i = arr.begin(); i != arr.end(); ++i) {
+        QJsonObject obj = i->toObject();
+        QString     str = caseSensitive ? obj.value(key).toString() : obj.value(key).toString().toLower();
+        if (str == val) {
+            return obj;
+        }
+    }
+    return QJsonObject();
 }
 
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
