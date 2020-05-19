@@ -383,17 +383,18 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         countAll++;
 
         if (first && !_ohPlayerItems.contains(name)) {
+            QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
             // add entity to the discovered entity list
             QString type = item.value("type").toString();
             if (type == "Dimmer") {
                 QStringList features("BRIGHTNESS");
-                addAvailableEntity(name, "light", integrationId(), item.value("label").toString(), features);
+                addAvailableEntity(name, "light", integrationId(), label, features);
             } else if (type == "Switch") {
                 QStringList features("POWER");
-                addAvailableEntity(name, "switch", integrationId(), item.value("label").toString(), features);
+                addAvailableEntity(name, "switch", integrationId(), label, features);
             } else if (type == "Rollershutter") {
                 QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
-                addAvailableEntity(name, "blind", integrationId(), item.value("label").toString(), features);
+                addAvailableEntity(name, "blind", integrationId(), label, features);
             }
         }
 
