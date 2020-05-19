@@ -23,11 +23,19 @@
 #pragma once
 
 #include <QMap>
+#include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 
 class MediaPlayerChannels {
  public:
     static const QMap<QString, MediaPlayerDef::Attributes> channels;
-    static const QList<MediaPlayerDef::Attributes> mandatory;
-    static const int channelcount;
+    static const QList<MediaPlayerDef::Attributes>         mandatory;
+    static const int                                       channelcount;
+};
+
+class LightChannels {
+ public:
+    static const QMap<QString, LightDef::Attributes> channels;
+    static const QList<LightDef::Attributes>         mandatory;
+    static const int                                 channelcount;
 };

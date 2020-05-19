@@ -32,6 +32,7 @@
 #include <QTimer>
 #include <QVariant>
 
+#include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/notificationsinterface.h"
 #include "yio-interface/plugininterface.h"
@@ -70,7 +71,7 @@ class OpenHAB : public Integration {
     void leaveStandby() override;
     void enterStandby() override;
 
-    void streamFinished(QNetworkReply *reply);
+    void streamFinished(QNetworkReply* reply);
     void streamReceived();
     void onSseTimeout();
     void onPollingTimer();
@@ -91,6 +92,16 @@ class OpenHAB : public Integration {
         QString                    playerId;  // Entityid of player
         MediaPlayerDef::Attributes attribute;
     };
+    struct OHLight {
+        OHLight() : connected(false) {}
+        bool connected;
+    };
+    struct OHLightItem {
+        OHLightItem() {}
+        OHLightItem(const QString& lightId, LightDef::Attributes attr) : lightId(lightId), attribute(attr) {}
+        QString              lightId;
+        LightDef::Attributes attribute;
+    };
 
     void startSse();
 
@@ -104,9 +115,11 @@ class OpenHAB : public Integration {
     void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
+    void processComplexLight(const QString& value, const QString& name);
     void openHABCommand(const QString& itemId, const QString& state);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
+    const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
     QNetworkAccessManager          _sseNetworkManager;
@@ -119,6 +132,8 @@ class OpenHAB : public Integration {
     QMap<QString, OHConfiguration> _ohConfiguration;  // OpenHAB items configuration
     QMap<QString, OHPlayer>        _ohPlayers;        // YIO player entities
     QMap<QString, OHPlayerItem>    _ohPlayerItems;    // OpenHAB items associated with player
+    QMap<QString, OHLight>         _ohLights;         // YIO complex light entities
+    QMap<QString, OHLightItem>     _ohLightItems;     // OpenHAB items associated with special lights
     int                            _tries;
     bool                           _userDisconnect;
     bool                           _wasDisconnected;

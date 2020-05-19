@@ -23,6 +23,7 @@
 #include "openhab.h"
 #include "openhab_channelmappings.h"
 
+#include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSet>
@@ -118,6 +119,10 @@ void OpenHAB::streamReceived() {
             QString value =
                 (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             processPlayerItem(value, name);
+        } else if (_ohLightItems.contains(name) && _ohLights[_ohLightItems[name].lightId].connected) {
+            QString value =
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+            processComplexLight(value, name);
         }
     }
 
@@ -256,25 +261,29 @@ void OpenHAB::searchPlayers(const QJsonDocument& result) {
     for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
         QJsonObject item = i->toObject();
         QString     uid = item.value("UID").toString();
-        // search new players
-        QJsonArray  channels = item.value("channels").toArray();
-        int         mandatory = 0;
-        int         optional = 0;
-        auto        tmpman = MediaPlayerChannels::mandatory;
+        // search new things
+        QJsonArray channels = item.value("channels").toArray();
+        int        mp_mandatory = 0, li_mandatory = 0;
+        int        mp_optional = 0, li_optional = 0;
+        auto       mp_manchan = MediaPlayerChannels::mandatory;
+        auto       li_manchan = LightChannels::mandatory;
+
         QStringList mp_features = {"PLAY", "PAUSE", "NEXT", "PREVIOUS", "STOP"};
+        QStringList li_features = {"BRIGHTNESS"};
         for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
             QJsonObject channel = i->toObject();
             QJsonArray  linkedItems = channel.value("linkedItems").toArray();
             if (linkedItems.count() == 0) {
                 continue;
             }
-
             QString id = channel.value("id").toString();
-            if (tmpman.contains(MediaPlayerChannels::channels[id])) {
-                tmpman.removeAll(MediaPlayerChannels::channels[id]);
-                mandatory++;
+
+            // search for media players
+            if (mp_manchan.contains(MediaPlayerChannels::channels[id])) {
+                mp_manchan.removeAll(MediaPlayerChannels::channels[id]);
+                mp_mandatory++;
             } else if (MediaPlayerChannels::channels.contains(id)) {
-                optional++;
+                mp_optional++;
                 if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::VOLUME) {
                     mp_features << "VOLUME"
                                 << "VOLUME_SET";
@@ -292,11 +301,25 @@ void OpenHAB::searchPlayers(const QJsonDocument& result) {
                     mp_features << "MEDIA_DURATION";
                 }
             }
+
+            // search for lights
+            if (li_manchan.contains(LightChannels::channels[id])) {
+                li_manchan.removeAll(LightChannels::channels[id]);
+                li_mandatory++;
+            } else if (LightChannels::channels.contains(id)) {
+                li_optional++;
+                if (LightChannels::channels.value(id) == LightDef::COLOR) {
+                    li_features << "COLOR";
+                } else if (LightChannels::channels.value(id) == LightDef::COLORTEMP) {
+                    mp_features << "COLORTEMP";
+                }
+            }
         }
 
         // check if it is a valid media player
-        if ((mandatory == MediaPlayerChannels::mandatory.length()) && (optional >= MediaPlayerChannels::channelcount)) {
-            // add the media player to the
+        if ((mp_mandatory == MediaPlayerChannels::mandatory.length()) &&
+            (mp_optional >= MediaPlayerChannels::channelcount)) {
+            // add the media player to the list
             addAvailableEntity(uid, "media_player", integrationId(), item.value("label").toString(), mp_features);
 
             // add the channels from the recognized media player to the channel list
@@ -319,6 +342,35 @@ void OpenHAB::searchPlayers(const QJsonDocument& result) {
             for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
                 if (((*i)->type() == "media_player") && ((*i)->entity_id() == uid)) {
                     _ohPlayers[uid].connected = true;
+                }
+            }
+        }
+
+        // check if it is a valid complex light
+        if ((li_mandatory == LightChannels::mandatory.length()) && (li_optional >= LightChannels::channelcount)) {
+            // add the light to the list
+            addAvailableEntity(uid, "light", integrationId(), item.value("label").toString(), li_features);
+
+            // add the channels from the recognized media player to the channel list
+            for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
+                QJsonObject channel = i->toObject();
+                QJsonArray  linkedItems = channel.value("linkedItems").toArray();
+                if (linkedItems.count() == 0) {
+                    continue;
+                }
+
+                QString linkItem = linkedItems[0].toString();
+                QString id = channel.value("id").toString();
+                if (LightChannels::channels.contains(id)) {
+                    _ohLightItems.insert(linkItem, OHLightItem(uid, LightChannels::channels[id]));
+                }
+            }
+
+            // add light to own light list and set it as connected if we have it in our entity list
+            _ohLights.insert(uid, OHLight());
+            for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
+                if (((*i)->type() == "light") && ((*i)->entity_id() == uid)) {
+                    _ohLights[uid].connected = true;
                 }
             }
         }
@@ -407,11 +459,13 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
             // process entity
             processItem(item, entity);
-        } else {
+
             // try player
-            if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
-                processPlayerItem(item.value("state").toString(), name);
-            }
+        } else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
+            processPlayerItem(item.value("state").toString(), name);
+            // try light
+        } else if (_ohLightItems.contains(name) && _ohLights[_ohLightItems[name].lightId].connected) {
+            processComplexLight(item.value("state").toString(), name);
         }
     }
 
@@ -503,6 +557,24 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
     }
 }
 
+void OpenHAB::processComplexLight(const QString& value, const QString& name) {
+    OHLightItem      lightItem = _ohLightItems[name];
+    EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
+    if (lightItem.attribute == LightDef::BRIGHTNESS) {
+        int  brightness = value.toInt();
+        bool on = brightness == 100;
+        entity->setState(on ? LightDef::ON : LightDef::OFF);
+        entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
+    } else if (lightItem.attribute == LightDef::COLOR) {
+        QStringList cs = value.split(',');
+        QColor      color = QColor::fromHsv(cs[0].toInt(), (cs[1].toInt() * 255) / 100, (cs[2].toInt() * 255) / 100);
+        entity->updateAttrByIndex(LightDef::COLOR, color.toRgb().name());
+    } else if (lightItem.attribute == LightDef::COLORTEMP) {
+        int colortemp = value.toInt();
+        entity->updateAttrByIndex(LightDef::COLORTEMP, colortemp);
+    }
+}
+
 void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
     OHPlayerItem     playerItem = _ohPlayerItems[name];
     QString          state = value.toUpper();
@@ -554,28 +626,76 @@ const QString* OpenHAB::lookupPlayerItem(const QString& entityId, MediaPlayerDef
     return nullptr;
 }
 
+const QString* OpenHAB::lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr) {
+    for (QMap<QString, OHLightItem>::iterator i = _ohLightItems.begin(); i != _ohLightItems.end(); ++i) {
+        if (i.value().attribute == attr && i.value().lightId == entityId) {
+            return &i.key();
+        }
+    }
+    return nullptr;
+}
+
 void OpenHAB::sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) {
     QString state;
     if (type == "light") {
         ////////////////////////////////////////////////////////////////
         // Light
         ////////////////////////////////////////////////////////////////
-        switch (static_cast<LightDef::Commands>(command)) {
-            case LightDef::C_OFF:
-                state = "OFF";
-                break;
-            case LightDef::C_ON:
-                state = "ON";
-                break;
-            case LightDef::C_BRIGHTNESS:
-                state = QString::number(param.toInt());
-                break;
-            default:
-                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+        const QString* ohitemId = nullptr;
+        if (_ohLights.contains(entityId)) {
+            QColor color;
+            switch (static_cast<LightDef::Commands>(command)) {
+                case LightDef::C_OFF:
+                    state = "OFF";
+                    ohitemId = lookupComplexLightItem(entityId, LightDef::BRIGHTNESS);
+                    break;
+                case LightDef::C_ON:
+                    state = "ON";
+                    ohitemId = lookupComplexLightItem(entityId, LightDef::BRIGHTNESS);
+                    break;
+                case LightDef::C_BRIGHTNESS:
+                    state = QString::number(param.toInt());
+                    ohitemId = lookupComplexLightItem(entityId, LightDef::BRIGHTNESS);
+                    break;
+                case LightDef::C_COLOR:
+                    color = QColor(param.toString());
+                    state = QString::number(color.hue()) + ',' + QString::number(color.saturationF() * 100) + ',' +
+                            QString::number(color.lightnessF() * 100);
+                    ohitemId = lookupComplexLightItem(entityId, LightDef::COLOR);
+                    break;
+                case LightDef::C_COLORTEMP:
+                    state = QString::number(param.toInt());
+                    ohitemId = lookupComplexLightItem(entityId, LightDef::COLORTEMP);
+                    break;
+                default:
+                    qCInfo(m_logCategory) << "Complex Light command" << command << " not supported for " << entityId;
+                    return;
+            }
+            if (ohitemId == nullptr) {
+                qCInfo(m_logCategory) << "Complex Light command" << command << " not supported for " << entityId;
                 return;
+            }
+            qCDebug(m_logCategory) << "Complex Light command" << command << " - " << state << " for " << entityId;
+            openHABCommand(*ohitemId, state);
+        } else {
+            switch (static_cast<LightDef::Commands>(command)) {
+                case LightDef::C_OFF:
+                    state = "OFF";
+                    break;
+                case LightDef::C_ON:
+                    state = "ON";
+                    break;
+                case LightDef::C_BRIGHTNESS:
+                    state = QString::number(param.toInt());
+                    break;
+                default:
+                    qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+                    return;
+            }
+            qCDebug(m_logCategory) << "Light command" << command << " - " << state << " for " << entityId;
+            openHABCommand(entityId, state);
         }
-        qCDebug(m_logCategory) << "Light command" << command << " - " << state << " for " << entityId;
-        openHABCommand(entityId, state);
+
     } else if (type == "switch") {
         ////////////////////////////////////////////////////////////////
         // Switch
