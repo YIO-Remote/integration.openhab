@@ -82,8 +82,8 @@ class OpenHAB : public Integration {
         OHType ohType;
     };
     struct OHPlayer {
-        OHPlayer() : found(false) {}
-        bool found;
+        OHPlayer() : connected(false) {}
+        bool connected;
     };
     struct OHPlayerItem {
         OHPlayerItem() {}
@@ -97,15 +97,13 @@ class OpenHAB : public Integration {
     void getThings();
     void getItems(bool first = false);
     void jsonError(const QString& error);
-    void processThings(const QJsonDocument& result);
+    void searchPlayers(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
     void processItem(const QJsonObject& item, EntityInterface* entity);
     void processPlayerItem(const QString& item, const QString& name);
     void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
-    void initializePlayer(const QString& entityId, OHPlayer& player,  // NOLINT we need a non-const reference
-                          const QJsonObject& json);
     void openHABCommand(const QString& itemId, const QString& state);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);

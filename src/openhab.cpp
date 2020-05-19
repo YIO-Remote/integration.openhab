@@ -114,7 +114,7 @@ void OpenHAB::streamReceived() {
             } else if (entity->type() == "switch") {
                 processSwitch(value, entity);
             }
-        } else if (_ohPlayerItems.contains(name)) {
+        } else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
             QString value =
                 (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             processPlayerItem(value, name);
@@ -178,16 +178,16 @@ void OpenHAB::connect() {
     _myEntities = m_entities->getByIntegration(integrationId());
 
     // Look for mediaplayers
-    for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
+    /*for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
         if ((*i)->type() == "media_player") {
             _ohPlayers.insert((*i)->entity_id(), OHPlayer());
         }
-    }
-    if (_ohPlayers.count() > 0) {
-        getThings();
-    } else {
-        getItems(true);
-    }
+    }*/
+    // if (_ohPlayers.count() > 0) {
+    getThings();
+    //} else {
+    //    getItems(true);
+    //}
 
     _tries = 0;
     _userDisconnect = false;
@@ -245,33 +245,61 @@ void OpenHAB::getThings() {
             jsonError(parseerror.errorString());
             return;
         }
-        processThings(doc);
+        searchPlayers(doc);
+        getItems(true);
     });
 }
 
-void OpenHAB::processThings(const QJsonDocument& result) {
-    int countFound = 0, countAll = 0;
-
+void OpenHAB::searchPlayers(const QJsonDocument& result) {
     // get all things
     QJsonArray array = result.array();
     for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
         QJsonObject item = i->toObject();
         QString     uid = item.value("UID").toString();
-        countAll++;
-        if (_ohPlayers.contains(uid)) {
-            // process existing players
-            countFound++;
-            for (QMap<QString, OHPlayer>::iterator i = _ohPlayers.begin(); i != _ohPlayers.end(); ++i) {
-                if (i.key() == uid) {
-                    initializePlayer(uid, i.value(), item);
+        // search new players
+        QJsonArray  channels = item.value("channels").toArray();
+        int         mandatory = 0;
+        int         optional = 0;
+        auto        tmpman = MediaPlayerChannels::mandatory;
+        QStringList mp_features = {"PLAY", "PAUSE", "NEXT", "PREVIOUS", "STOP"};
+        for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
+            QJsonObject channel = i->toObject();
+            QJsonArray  linkedItems = channel.value("linkedItems").toArray();
+            if (linkedItems.count() == 0) {
+                continue;
+            }
+
+            QString id = channel.value("id").toString();
+            if (tmpman.contains(MediaPlayerChannels::channels[id])) {
+                tmpman.removeAll(MediaPlayerChannels::channels[id]);
+                mandatory++;
+            } else if (MediaPlayerChannels::channels.contains(id)) {
+                optional++;
+                if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::VOLUME) {
+                    mp_features << "VOLUME"
+                                << "VOLUME_SET";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::SOURCE) {
+                    mp_features << "SOURCE";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MUTED) {
+                    mp_features << "MUTED";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIAARTIST) {
+                    mp_features << "MEDIA_ARTIST";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIATITLE) {
+                    mp_features << "MEDIA_TITLE";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIAPROGRESS) {
+                    mp_features << "MEDIA_POSITION";
+                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIADURATION) {
+                    mp_features << "MEDIA_DURATION";
                 }
             }
-        } else {
-            // search new players
-            QJsonArray channels = item.value("channels").toArray();
-            int        mandatory = 0;
-            int        optional = 0;
-            auto       tmpman = MediaPlayerChannels::mandatory;
+        }
+
+        // check if it is a valid media player
+        if ((mandatory == MediaPlayerChannels::mandatory.length()) && (optional >= MediaPlayerChannels::channelcount)) {
+            // add the media player to the
+            addAvailableEntity(uid, "media_player", integrationId(), item.value("label").toString(), mp_features);
+
+            // add the channels from the recognized media player to the channel list
             for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
                 QJsonObject channel = i->toObject();
                 QJsonArray  linkedItems = channel.value("linkedItems").toArray();
@@ -279,56 +307,20 @@ void OpenHAB::processThings(const QJsonDocument& result) {
                     continue;
                 }
 
+                QString linkItem = linkedItems[0].toString();
                 QString id = channel.value("id").toString();
-                if (tmpman.contains(MediaPlayerChannels::channels[id])) {
-                    tmpman.removeAll(MediaPlayerChannels::channels[id]);
-                    mandatory++;
-                } else if (MediaPlayerChannels::channels.contains(id)) {
-                    optional++;
+                if (MediaPlayerChannels::channels.contains(id)) {
+                    _ohPlayerItems.insert(linkItem, OHPlayerItem(uid, MediaPlayerChannels::channels[id]));
                 }
             }
 
-            if ((mandatory == MediaPlayerChannels::mandatory.length()) &&
-                (optional >= MediaPlayerChannels::channelcount)) {
-                qCDebug(m_logCategory) << "add media player " << uid << " & " << item.value("label").toString();
-                QStringList features("VOLUME");
-                addAvailableEntity(uid, "media_player", integrationId(), item.value("label").toString(), features);
+            // add player to own player list and set it as connected if we have it in our entity list
+            _ohPlayers.insert(uid, OHPlayer());
+            for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
+                if (((*i)->type() == "media_player") && ((*i)->entity_id() == uid)) {
+                    _ohPlayers[uid].connected = true;
+                }
             }
-        }
-    }
-    int missing = _ohPlayers.count() - countFound;
-    if (missing > 0) {
-        m_notifications->add(true, "openHAB - players missing : " + QString::number(missing));
-        for (QMap<QString, OHPlayer>::iterator i = _ohPlayers.begin(); i != _ohPlayers.end(); ++i) {
-            if (!i.value().found) {
-                qCInfo(m_logCategory) << "missing player: " << i.key();
-                EntityInterface* entity = m_entities->getEntityInterface(i.key());
-                entity->setConnected(false);
-            }
-        }
-    }
-    qCInfo(m_logCategory)
-        << QString("Got %1 things, %2 players for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
-
-    // Now getItems must be called
-    getItems(true);
-}
-
-void OpenHAB::initializePlayer(const QString& entityId, OHPlayer& player, const QJsonObject& json) {
-    player.found = true;
-
-    QJsonArray channels = json.value("channels").toArray();
-    for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
-        QJsonObject channel = i->toObject();
-        QJsonArray  linkedItems = channel.value("linkedItems").toArray();
-        if (linkedItems.count() == 0) {
-            continue;
-        }
-
-        QString linkItem = linkedItems[0].toString();
-        QString id = channel.value("id").toString();
-        if (MediaPlayerChannels::channels.contains(id)) {
-            _ohPlayerItems.insert(linkItem, OHPlayerItem(entityId, MediaPlayerChannels::channels[id]));
         }
     }
 }
@@ -390,17 +382,19 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         QString     name = item.value("name").toString();
         countAll++;
 
-        // add entity to the discovered entity list
-        QString type = item.value("type").toString();
-        if (type == "Dimmer") {
-            QStringList features("BRIGHTNESS");
-            addAvailableEntity(name, "light", integrationId(), item.value("label").toString(), features);
-        } else if (type == "Switch") {
-            QStringList features("POWER");
-            addAvailableEntity(name, "switch", integrationId(), item.value("label").toString(), features);
-        } else if (type == "Rollershutter") {
-            QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
-            addAvailableEntity(name, "blind", integrationId(), item.value("label").toString(), features);
+        if (first && !_ohPlayerItems.contains(name)) {
+            // add entity to the discovered entity list
+            QString type = item.value("type").toString();
+            if (type == "Dimmer") {
+                QStringList features("BRIGHTNESS");
+                addAvailableEntity(name, "light", integrationId(), item.value("label").toString(), features);
+            } else if (type == "Switch") {
+                QStringList features("POWER");
+                addAvailableEntity(name, "switch", integrationId(), item.value("label").toString(), features);
+            } else if (type == "Rollershutter") {
+                QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
+                addAvailableEntity(name, "blind", integrationId(), item.value("label").toString(), features);
+            }
         }
 
         entity = m_entities->getEntityInterface(name);
@@ -414,7 +408,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             processItem(item, entity);
         } else {
             // try player
-            if (_ohPlayerItems.contains(name)) {
+            if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
                 processPlayerItem(item.value("state").toString(), name);
             }
         }
