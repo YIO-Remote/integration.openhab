@@ -53,6 +53,8 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "url") {
             _url = iter.value().toString();
+        } else if (iter.key() == "lightgroup") {
+            _lightgroup = iter.value().toString();
         }
     }
     if (!_url.endsWith('/')) {
@@ -443,8 +445,14 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                 QStringList features("BRIGHTNESS");
                 addAvailableEntity(name, "light", integrationId(), label, features);
             } else if (type == "Switch") {
-                QStringList features("POWER");
-                addAvailableEntity(name, "switch", integrationId(), label, features);
+                auto groups = item.value("groupNames").toArray();
+                if (groups.contains(_lightgroup)) {
+                    QStringList features("BRIGHTNESS");
+                    addAvailableEntity(name, "light", integrationId(), label, features);
+                } else {
+                    QStringList features("POWER");
+                    addAvailableEntity(name, "switch", integrationId(), label, features);
+                }
             } else if (type == "Rollershutter") {
                 QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
                 addAvailableEntity(name, "blind", integrationId(), label, features);

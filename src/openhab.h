@@ -128,6 +128,7 @@ class OpenHAB : public Integration {
     QTimer*                        _sseReconnectTimer;
     QTimer                         _pollingTimer;
     QString                        _url;
+    QString                        _lightgroup;
     QNetworkAccessManager          _nam;
     QList<EntityInterface*>        _myEntities;       // Entities of this integration
     QMap<QString, OHConfiguration> _ohConfiguration;  // OpenHAB items configuration
