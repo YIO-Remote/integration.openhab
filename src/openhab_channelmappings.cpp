@@ -24,6 +24,7 @@
 #include <QMap>
 #include "yio-interface/entities/mediaplayerinterface.h"
 
+// Mapping of OpenHAB item channel to the YIO media player attribute
 const QMap<QString, MediaPlayerDef::Attributes> MediaPlayerChannels::channels = {
     // STATE
     {"power", MediaPlayerDef::STATE},
@@ -54,3 +55,12 @@ const QMap<QString, MediaPlayerDef::Attributes> MediaPlayerChannels::channels = 
     // MEDIADURATION
     {"duration", MediaPlayerDef::MEDIADURATION},
 };
+
+// mandatory channels for the media player entity auto discover
+// a OpenHAB thing must have these item channels for the auto discovery
+const QList<MediaPlayerDef::Attributes> MediaPlayerChannels::mandatory = {
+    MediaPlayerDef::STATE
+};
+
+// number of additional channels a OpenHAB thing which are mapped to YIO attribute must have for auto discovery
+const int MediaPlayerChannels::channelcount = 2;

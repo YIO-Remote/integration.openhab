@@ -28,4 +28,6 @@
 class MediaPlayerChannels {
  public:
     static const QMap<QString, MediaPlayerDef::Attributes> channels;
+    static const QList<MediaPlayerDef::Attributes> mandatory;
+    static const int channelcount;
 };

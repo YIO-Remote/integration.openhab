@@ -259,11 +259,40 @@ void OpenHAB::processThings(const QJsonDocument& result) {
         QString     uid = item.value("UID").toString();
         countAll++;
         if (_ohPlayers.contains(uid)) {
+            // process existing players
             countFound++;
             for (QMap<QString, OHPlayer>::iterator i = _ohPlayers.begin(); i != _ohPlayers.end(); ++i) {
                 if (i.key() == uid) {
                     initializePlayer(uid, i.value(), item);
                 }
+            }
+        } else {
+            // search new players
+            QJsonArray channels = item.value("channels").toArray();
+            int        mandatory = 0;
+            int        optional = 0;
+            auto       tmpman = MediaPlayerChannels::mandatory;
+            for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
+                QJsonObject channel = i->toObject();
+                QJsonArray  linkedItems = channel.value("linkedItems").toArray();
+                if (linkedItems.count() == 0) {
+                    continue;
+                }
+
+                QString id = channel.value("id").toString();
+                if (tmpman.contains(MediaPlayerChannels::channels[id])) {
+                    tmpman.removeAll(MediaPlayerChannels::channels[id]);
+                    mandatory++;
+                } else if (MediaPlayerChannels::channels.contains(id)) {
+                    optional++;
+                }
+            }
+
+            if ((mandatory == MediaPlayerChannels::mandatory.length()) &&
+                (optional >= MediaPlayerChannels::channelcount)) {
+                qCDebug(m_logCategory) << "add media player " << uid << " & " << item.value("label").toString();
+                QStringList features("VOLUME");
+                addAvailableEntity(uid, "media_player", integrationId(), item.value("label").toString(), features);
             }
         }
     }
