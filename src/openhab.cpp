@@ -424,9 +424,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         // Build a set of integrations entities (exclude media players)
         allEntities = new QSet<QString>();
         for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
-            if ((*i)->type() != "media_player") {
                 allEntities->insert((*i)->entity_id());
-            }
         }
     }
 
@@ -437,7 +435,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         QString     name = item.value("name").toString();
         countAll++;
 
-        if (first && !_ohPlayerItems.contains(name)) {
+        if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
             QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
             // add entity to the discovered entity list
             QString type = item.value("type").toString();
@@ -471,9 +469,19 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
 
             // try player
         } else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
+            if (allEntities != nullptr) {
+                if (allEntities->remove(_ohPlayerItems[name].playerId)) {
+                    countFound++;
+                }
+            }
             processPlayerItem(item.value("state").toString(), name);
             // try light
         } else if (_ohLightItems.contains(name) && _ohLights[_ohLightItems[name].lightId].connected) {
+            if (allEntities != nullptr) {
+                if (allEntities->remove(_ohLightItems[name].lightId)) {
+                    countFound++;
+                }
+            }
             processComplexLight(item.value("state").toString(), name);
         }
     }
