@@ -251,12 +251,12 @@ void OpenHAB::getThings() {
             jsonError(parseerror.errorString());
             return;
         }
-        searchPlayers(doc);
+        searchThings(doc);
         getItems(true);
     });
 }
 
-void OpenHAB::searchPlayers(const QJsonDocument& result) {
+void OpenHAB::searchThings(const QJsonDocument& result) {
     // get all things
     QJsonArray array = result.array();
     for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
@@ -422,7 +422,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         // Build a set of integrations entities (exclude media players)
         allEntities = new QSet<QString>();
         for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
-                allEntities->insert((*i)->entity_id());
+            allEntities->insert((*i)->entity_id());
         }
     }
 

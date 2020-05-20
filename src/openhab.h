@@ -79,10 +79,6 @@ class OpenHAB : public Integration {
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
  private:
-    enum OHType { Switch, Dimmer, Player };
-    struct OHConfiguration {
-        OHType ohType;
-    };
     struct OHPlayer {
         OHPlayer() : connected(false) {}
         bool connected;
@@ -109,7 +105,7 @@ class OpenHAB : public Integration {
     void getThings();
     void getItems(bool first = false);
     void jsonError(const QString& error);
-    void searchPlayers(const QJsonDocument& result);
+    void searchThings(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
     void processItem(const QJsonObject& item, EntityInterface* entity);
     void processPlayerItem(const QString& item, const QString& name);
@@ -130,7 +126,6 @@ class OpenHAB : public Integration {
     QString                        _url;
     QNetworkAccessManager          _nam;
     QList<EntityInterface*>        _myEntities;       // Entities of this integration
-    QMap<QString, OHConfiguration> _ohConfiguration;  // OpenHAB items configuration
     QMap<QString, OHPlayer>        _ohPlayers;        // YIO player entities
     QMap<QString, OHPlayerItem>    _ohPlayerItems;    // OpenHAB items associated with player
     QMap<QString, OHLight>         _ohLights;         // YIO complex light entities
