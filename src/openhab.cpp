@@ -432,7 +432,6 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         QJsonObject item = i->toObject();
         QString     name = item.value("name").toString();
         countAll++;
-
         if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
             QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
             // add entity to the discovered entity list
@@ -569,6 +568,9 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 void OpenHAB::processComplexLight(const QString& value, const QString& name) {
     OHLightItem      lightItem = _ohLightItems[name];
     EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
+    if (entity == nullptr)
+        return;
+
     if (lightItem.attribute == LightDef::BRIGHTNESS) {
         int  brightness = value.toInt();
         bool on = brightness == 100;
@@ -588,6 +590,9 @@ void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
     OHPlayerItem     playerItem = _ohPlayerItems[name];
     QString          state = value.toUpper();
     EntityInterface* entity = m_entities->getEntityInterface(playerItem.playerId);
+    if (entity == nullptr)
+        return;
+
     switch (playerItem.attribute) {
         case MediaPlayerDef::STATE:
             if (state == "ON") {
