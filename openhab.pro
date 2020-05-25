@@ -53,8 +53,10 @@ unix {
 QMAKE_SUBSTITUTES += openhab.json.in version.txt.in
 # output path must be included for the output file from QMAKE_SUBSTITUTES
 INCLUDEPATH += $$OUT_PWD
-HEADERS  += src/openhab.h
-SOURCES  += src/openhab.cpp
+HEADERS  += src/openhab.h \
+    src/openhab_channelmappings.h
+SOURCES  += src/openhab.cpp \
+    src/openhab_channelmappings.cpp
 TARGET    = openhab
 
 # Configure destination path. DESTDIR is set in qmake-destination-path.pri
