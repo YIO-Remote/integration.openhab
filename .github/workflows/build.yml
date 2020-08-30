@@ -120,5 +120,5 @@
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
             prerelease: false
             files: |
-              *.tar
+                *.tar
                 ${{ env.HASH_FILENAME }}
