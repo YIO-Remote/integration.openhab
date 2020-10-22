@@ -22,7 +22,6 @@
  *****************************************************************************/
 
 #include "openhab.h"
-#include "openhab_channelmappings.h"
 
 #include <QColor>
 #include <QJsonArray>
@@ -31,13 +30,14 @@
 #include <QString>
 #include <QtDebug>
 
+#include "openhab_channelmappings.h"
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/entityinterface.h"
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/entities/switchinterface.h"
 
-OpenHABPlugin::OpenHABPlugin() : Plugin("openhab", NO_WORKER_THREAD) {}
+OpenHABPlugin::OpenHABPlugin() : Plugin("yio.plugin.openhab", NO_WORKER_THREAD) {}
 
 Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, EntitiesInterface* entities,
                                               NotificationsInterface* notifications, YioAPIInterface* api,
@@ -150,12 +150,13 @@ void OpenHAB::onSseTimeout() {
         qCCritical(m_logCategory) << "Cannot connect to OpenHab: retried 3 times connecting to" << _url;
         QObject* param = this;
 
-        m_notifications->add(true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                             [](QObject* param) {
-                                 Integration* i = qobject_cast<Integration*>(param);
-                                 i->connect();
-                             },
-                             param);
+        m_notifications->add(
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            param);
 
         _tries = 0;
     } else {
@@ -230,9 +231,13 @@ void OpenHAB::leaveStandby() {
     startSse();
 }
 
-void OpenHAB::jsonError(const QString& error) { qCWarning(m_logCategory) << "JSON error " << error; }
+void OpenHAB::jsonError(const QString& error) {
+    qCWarning(m_logCategory) << "JSON error " << error;
+}
 
-void OpenHAB::onPollingTimer() { getItems(); }
+void OpenHAB::onPollingTimer() {
+    getItems();
+}
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
@@ -568,8 +573,7 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 void OpenHAB::processComplexLight(const QString& value, const QString& name) {
     OHLightItem      lightItem = _ohLightItems[name];
     EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
-    if (entity == nullptr)
-        return;
+    if (entity == nullptr) return;
 
     if (lightItem.attribute == LightDef::BRIGHTNESS) {
         int  brightness = value.toInt();
@@ -590,8 +594,7 @@ void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
     OHPlayerItem     playerItem = _ohPlayerItems[name];
     QString          state = value.toUpper();
     EntityInterface* entity = m_entities->getEntityInterface(playerItem.playerId);
-    if (entity == nullptr)
-        return;
+    if (entity == nullptr) return;
 
     switch (playerItem.attribute) {
         case MediaPlayerDef::STATE:
