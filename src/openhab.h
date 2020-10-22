@@ -119,19 +119,19 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkAccessManager          _sseNetworkManager;
-    QNetworkReply*                 _sseReply;
-    QTimer*                        _sseReconnectTimer;
-    QTimer                         _pollingTimer;
-    QString                        _url;
-    QNetworkAccessManager          _nam;
-    QList<EntityInterface*>        _myEntities;       // Entities of this integration
-    QMap<QString, OHPlayer>        _ohPlayers;        // YIO player entities
-    QMap<QString, OHPlayerItem>    _ohPlayerItems;    // OpenHAB items associated with player
-    QMap<QString, OHLight>         _ohLights;         // YIO complex light entities
-    QMap<QString, OHLightItem>     _ohLightItems;     // OpenHAB items associated with special lights
-    int                            _tries;
-    bool                           _userDisconnect;
-    bool                           _wasDisconnected;
-    bool                           _standby;
+    QNetworkAccessManager       _sseNetworkManager;
+    QNetworkReply*              _sseReply;
+    QTimer*                     _sseReconnectTimer;
+    QTimer                      _pollingTimer;
+    QString                     _url;
+    QNetworkAccessManager       _nam;
+    QList<EntityInterface*>     _myEntities;     // Entities of this integration
+    QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
+    QMap<QString, OHPlayerItem> _ohPlayerItems;  // OpenHAB items associated with player
+    QMap<QString, OHLight>      _ohLights;       // YIO complex light entities
+    QMap<QString, OHLightItem>  _ohLightItems;   // OpenHAB items associated with special lights
+    int                         _tries;
+    bool                        _userDisconnect;
+    bool                        _wasDisconnected;
+    bool                        _standby;
 };
