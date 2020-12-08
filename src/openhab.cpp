@@ -112,7 +112,7 @@ void OpenHAB::streamReceived() {
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
-            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
+            if ( entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
                 // processLight(value, entity,
                 processLight(value, entity, true, false);
             } else if (entity->type() == "light") {
@@ -192,8 +192,7 @@ void OpenHAB::connect() {
     tempEntities = m_entities->getByIntegration(integrationId());
 
     //int i = m_entities->getByIntegration(integrationId()).count();
-    for( int i=0; i<m_entities->getByIntegration(integrationId()).count(); ++i )
-    {
+    for ( int i = 0; i < m_entities->getByIntegration(integrationId()).count(); ++i ) {
         _myEntities.insert(m_entities->getByIntegration(integrationId())[i], false);
     }
 
@@ -437,8 +436,8 @@ void OpenHAB::getItems(bool first) {
 
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int              countFound = 0, countAll = 0;
-    //QSet<QString>*   allEntities = nullptr;
-    //EntityInterface* entity = nullptr;
+    // QSet<QString>*   allEntities = nullptr;
+    // EntityInterface* entity = nullptr;
 
     /*if (first) {
         // Build a set of integrations entities (exclude media players)
@@ -462,25 +461,24 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                 QString     name = item.value("name").toString();
                 countAll++;
                 if (name == name_entity) {
-                    _myEntities.insert(key,true);
-                    processItem(item,key);
+                    _myEntities.insert(key, true);
+                    processItem(item, key);
                     countFound++;
                 }
             }
-
         }
         if ( (_myEntities.count() - countFound) > 0 ) {
-            m_notifications->add(true, "openHAB - entities missing : " + QString::number((_myEntities.count() - countFound)));
+            m_notifications->add(true, "openHAB - entities missing : "
+                                 + QString::number((_myEntities.count() - countFound)));
         }
     } else {
-        for(auto key : _myEntities.keys()) {
-
+        for (auto key : _myEntities.keys()) {
             QString name_entity = key->entity_id();
             for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
                 QJsonObject item = i->toObject();
                 QString     name = item.value("name").toString();
                 if (name == name_entity) {
-                    processItem(item,key);
+                    processItem(item, key);
                 }
             }
         }
@@ -574,7 +572,7 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
     }
     if (entity->type() == "blind") {
         processBlind(item.value("state").toString(), entity);
-    }else {
+    } else {
         qCDebug(m_logCategory)
                 << QString("Unsupported openHab type %1 for entity %s").arg(ohtype).arg(entity->entity_id());
     }
@@ -776,9 +774,8 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "text/plain");
     request.setRawHeader("Accept", "application/json");
     QList<QByteArray> reqHeaders = request.rawHeaderList();
-    foreach( QByteArray reqName, reqHeaders )
-    {
-        QByteArray reqValue = request.rawHeader( reqName );
+    foreach( QByteArray reqName, reqHeaders ) {
+        QByteArray reqValue = request.rawHeader(reqName);
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
     qCDebug(m_logCategory) << request.rawHeaderList();
