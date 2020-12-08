@@ -83,14 +83,16 @@ const QMap<QString, LightDef::Attributes> LightChannels::channels = {
     {"color", LightDef::COLOR},
 
     // COLORTEMPERATURE
-    {"colorTemperature", LightDef::COLORTEMP},
+    {"colorTemperature", LightDef::COLORTEMP}
 };
 
 // mandatory channels for the complex light entity auto discover
 // a OpenHAB thing must have these item channels for the auto discovery
 const QList<LightDef::Attributes> LightChannels::mandatory = {
-    LightDef::BRIGHTNESS
+   //LightDef::STATE
 };
+
+
 
 // number of additional channels a OpenHAB thing which are mapped to YIO attribute must have for auto discovery
 const int LightChannels::channelcount = 1;

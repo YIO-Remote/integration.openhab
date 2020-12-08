@@ -112,7 +112,7 @@ class OpenHAB : public Integration {
     void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
-    void processComplexLight(const QString& value, const QString& name);
+    void processComplexLight(const QString& value, EntityInterface* entity);
     void openHABCommand(const QString& itemId, const QString& state);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
@@ -125,11 +125,12 @@ class OpenHAB : public Integration {
     QTimer                      _pollingTimer;
     QString                     _url;
     QNetworkAccessManager       _nam;
-    QList<EntityInterface*>     _myEntities;     // Entities of this integration
-    QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
+    QList<EntityInterface*>     tempEntities;     // Entities of this integration
+    QMap<EntityInterface*, bool> _myEntities;
+    /*QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
     QMap<QString, OHPlayerItem> _ohPlayerItems;  // OpenHAB items associated with player
     QMap<QString, OHLight>      _ohLights;       // YIO complex light entities
-    QMap<QString, OHLightItem>  _ohLightItems;   // OpenHAB items associated with special lights
+    QMap<QString, OHLightItem>  _ohLightItems;   // OpenHAB items associated with special lights*/
     int                         _tries;
     bool                        _userDisconnect;
     bool                        _wasDisconnected;
