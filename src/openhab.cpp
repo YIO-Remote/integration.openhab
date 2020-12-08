@@ -454,7 +454,6 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         QMap<EntityInterface*, bool> tempenteties = _myEntities;
         _myEntities.clear();
         for ( auto key : tempenteties.keys() ) {
-
             QString name_entity = key->entity_id();
             for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
                 QJsonObject item = i->toObject();
