@@ -191,7 +191,7 @@ void OpenHAB::connect() {
 
     tempEntities = m_entities->getByIntegration(integrationId());
 
-    //int i = m_entities->getByIntegration(integrationId()).count();
+    // int i = m_entities->getByIntegration(integrationId()).count();
     for ( int i = 0; i < m_entities->getByIntegration(integrationId()).count(); ++i ) {
         _myEntities.insert(m_entities->getByIntegration(integrationId())[i], false);
     }
@@ -450,10 +450,10 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
 
     // get all items
     QJsonArray array = result.array();
-    if (first){
+    if ( first ) {
         QMap<EntityInterface*, bool> tempenteties = _myEntities;
         _myEntities.clear();
-        for(auto key : tempenteties.keys()) {
+        for ( auto key : tempenteties.keys() ) {
 
             QString name_entity = key->entity_id();
             for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
@@ -584,11 +584,10 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
 
     brightness = value.toInt(&isInt);
 
-    if (!hasValidDimmerInfo)
-    {
+    if ( !hasValidDimmerInfo ) {
         isDimmer = isInt;
     }
-    if (isDimmer) {
+    if ( isDimmer ) {
         // int  brightness = value.toInt();
         bool on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
@@ -775,7 +774,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     request.setRawHeader("Accept", "application/json");
     QList<QByteArray> reqHeaders = request.rawHeaderList();
     foreach( QByteArray reqName, reqHeaders ) {
-        QByteArray reqValue = request.rawHeader(reqName);
+        QByteArray reqValue = request.rawHeader( reqName );
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
     qCDebug(m_logCategory) << request.rawHeaderList();
