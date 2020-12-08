@@ -89,7 +89,7 @@ const QMap<QString, LightDef::Attributes> LightChannels::channels = {
 // mandatory channels for the complex light entity auto discover
 // a OpenHAB thing must have these item channels for the auto discovery
 const QList<LightDef::Attributes> LightChannels::mandatory = {
-   //LightDef::STATE
+   // LightDef::STATE
 };
 
 

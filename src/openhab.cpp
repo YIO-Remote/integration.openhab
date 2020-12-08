@@ -581,15 +581,13 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
     }
     if (entity->type() == "light")
     {
-        processLight(item.value("state").toString(), entity,false, false);
+        processLight(item.value("state").toString(), entity, false, false);
     }
 
-    if(entity->type() == "switch")
-    {
+    if (entity->type() == "switch") {
         processSwitch(item.value("state").toString(), entity);
     }
-    if (entity->type() == "blind")
-    {
+    if (entity->type() == "blind") {
         processBlind(item.value("state").toString(), entity);
     }else {
         qCDebug(m_logCategory)
@@ -656,20 +654,21 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 }
 
 void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity) {
-    //OHLightItem      lightItem = _ohLightItems[name];
-    //EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
+    // OHLightItem      lightItem = _ohLightItems[name];
+    // EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
     if (entity == nullptr) return;
 
-    //if (lightItem.attribute == LightDef::BRIGHTNESS) {
-    if (entity->supported_features().contains("BRIGHTNESS")){
+    // if (lightItem.attribute == LightDef::BRIGHTNESS) {
+    if (entity->supported_features().contains("BRIGHTNESS")) {
         int  brightness = value.toInt();
         bool on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
         entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
     } else if (entity->supported_features().contains("COLOR")) {
-        if (value.contains(",")){
+        if (value.contains(",")) {
             QStringList cs = value.split(',');
-            QColor      color = QColor::fromHsv(cs[0].toInt(), (cs[1].toInt() * 255) / 100, (cs[2].toInt() * 255) / 100);
+            QColor      color = QColor::fromHsv(cs[0].toInt(), (cs[1].toInt() * 255) / 100,
+                    (cs[2].toInt() * 255) / 100);
             entity->updateAttrByIndex(LightDef::COLOR, color.HexRgb);
         }
     } else if (entity->supported_features().contains("COLORTEMP")) {
@@ -749,7 +748,6 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
 
     if (type == "light") {
         switch (static_cast<LightDef::Commands>(command)) {
-
         case LightDef::C_OFF:
             state = "OFF";
             break;
@@ -768,10 +766,8 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
             qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
             return;
         }
-    }
-    else if(type == "switch") {
+    } else if (type == "switch") {
         switch (static_cast<SwitchDef::Commands>(command)) {
-
         case SwitchDef::C_OFF:
             state = "OFF";
             break;
@@ -782,9 +778,7 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
             qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
             return;
         }
-    }
-    else
-    {
+    } else {
         qCInfo(m_logCategory) << "Command" << command << " not supported for " << entityId;
     }
     qCDebug(m_logCategory) << "Command" << command << " - " << state << " for " << entityId;
