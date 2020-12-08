@@ -481,11 +481,8 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         {
             m_notifications->add(true, "openHAB - entities missing : " + QString::number((_myEntities.count() - countFound)));
         }
-    }
-    else
-    {
-        for(auto key : _myEntities.keys())
-        {
+    } else {
+        for(auto key : _myEntities.keys()) {
 
             QString name_entity = key->entity_id();
             for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
@@ -571,16 +568,13 @@ void OpenHAB::processItem(const QJsonObject& item, EntityInterface* entity) {
     Q_ASSERT(entity != nullptr);
     QString ohtype = item.value("type").toString();
     QStringList test = entity->supported_features();
-    if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS"))
-    {
-        processLight(item.value("state").toString(), entity,true, true);
+    if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS")) {
+        processLight(item.value("state").toString(), entity, true, true);
     }
-    if (entity->type() == "light" && entity->supported_features().contains("COLOR"))
-    {
+    if (entity->type() == "light" && entity->supported_features().contains("COLOR")) {
         processComplexLight(item.value("state").toString(), entity);
     }
-    if (entity->type() == "light")
-    {
+    if (entity->type() == "light") {
         processLight(item.value("state").toString(), entity, false, false);
     }
 
