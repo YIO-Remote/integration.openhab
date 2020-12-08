@@ -106,22 +106,16 @@ void OpenHAB::streamReceived() {
         // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
         QString name = map.value("topic").toString().split('/')[2];
 
-        if (name.contains("hue"))
-        {
-            QString test = "0";
-        }
         EntityInterface* entity = m_entities->getEntityInterface(name);
         if (entity != nullptr) {
             QString value =
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
-            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") )
-            {
-                //processLight(value, entity,
+            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
+                // processLight(value, entity,
                 processLight(value, entity, true, false);
-            }
-            else if (entity->type() == "light") {
+            } else if (entity->type() == "light") {
                 processLight(value, entity, false, false);
             } else if (entity->type() == "blind") {
                 processBlind(value, entity);
@@ -200,7 +194,7 @@ void OpenHAB::connect() {
     //int i = m_entities->getByIntegration(integrationId()).count();
     for( int i=0; i<m_entities->getByIntegration(integrationId()).count(); ++i )
     {
-        _myEntities.insert(m_entities->getByIntegration(integrationId())[i],false);
+        _myEntities.insert(m_entities->getByIntegration(integrationId())[i], false);
     }
 
 
@@ -460,14 +454,12 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     if (first){
         QMap<EntityInterface*, bool> tempenteties = _myEntities;
         _myEntities.clear();
-        for(auto key : tempenteties.keys())
-        {
+        for(auto key : tempenteties.keys()) {
 
             QString name_entity = key->entity_id();
             for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
                 QJsonObject item = i->toObject();
                 QString     name = item.value("name").toString();
-
                 countAll++;
                 if (name == name_entity) {
                     _myEntities.insert(key,true);
@@ -477,8 +469,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
 
         }
-        if ((_myEntities.count() - countFound) > 0)
-        {
+        if ( (_myEntities.count() - countFound) > 0 ) {
             m_notifications->add(true, "openHAB - entities missing : " + QString::number((_myEntities.count() - countFound)));
         }
     } else {
@@ -497,14 +488,14 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
 
 
 
-        //QJsonObject item = i->toObject();
-        //QString     name = item.value("name").toString();
-        //countAll++;
+        // QJsonObject item = i->toObject();
+        // QString     name = item.value("name").toString();
+        // countAll++;
 
-        //if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
-        //QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
+        // if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
+        // QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
         // add entity to the discovered entity list
-        //QString type = item.value("type").toString();
+        // QString type = item.value("type").toString();
 
         /*if (type == "Dimmer") {
                 QStringList features("BRIGHTNESS");
@@ -529,7 +520,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
 
 
             // try player
-        }/* else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
+        } else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
             if (allEntities != nullptr) {
                 if (allEntities->remove(_ohPlayerItems[name].playerId)) {
                     countFound++;
@@ -543,7 +534,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                     countFound++;
                 }
             }
-            //processComplexLight(item.value("state").toString(), name);
+            // processComplexLight(item.value("state").toString(), name);
         }*/
 /*
 
