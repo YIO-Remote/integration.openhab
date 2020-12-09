@@ -678,8 +678,8 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     } else if (entity->supported_features().contains("COLOR")) {
         if (value.contains(",")) {
             QStringList cs = value.split(',');
-            QColor color = QColor ((cs[0].toInt()),
-                    ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
+            QColor color = QColor ( (cs[0].toInt()),
+                    ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl );
 
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X",
