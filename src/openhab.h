@@ -79,7 +79,7 @@ class OpenHAB : public Integration {
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
  private:
-    struct OHPlayer {
+   /* struct OHPlayer {
         OHPlayer() : connected(false) {}
         bool connected;
     };
@@ -98,7 +98,7 @@ class OpenHAB : public Integration {
         OHLightItem(const QString& lightId, LightDef::Attributes attr) : lightId(lightId), attribute(attr) {}
         QString              lightId;
         LightDef::Attributes attribute;
-    };
+    };*/
 
     void startSse();
 
@@ -106,14 +106,16 @@ class OpenHAB : public Integration {
     void getItems(bool first = false);
     void jsonError(const QString& error);
     void searchThings(const QJsonDocument& result);
+    void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
-    void processItem(const QJsonObject& item, EntityInterface* entity);
+    void processEntity(const QJsonObject& item, EntityInterface* entity);
     void processPlayerItem(const QString& item, const QString& name);
     void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
     void processComplexLight(const QString& value, EntityInterface* entity);
     void openHABCommand(const QString& itemId, const QString& state);
+    void updateItem(const QString name);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
@@ -125,8 +127,8 @@ class OpenHAB : public Integration {
     QTimer                      _pollingTimer;
     QString                     _url;
     QNetworkAccessManager       _nam;
-    QList<EntityInterface*>     tempEntities;     // Entities of this integration
-    QMap<EntityInterface*, bool> _myEntities;
+    QList<EntityInterface*>     _myEntities;     // Entities of this integration
+    // QMap<EntityInterface*, bool> _myEntities;
     /*QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
     QMap<QString, OHPlayerItem> _ohPlayerItems;  // OpenHAB items associated with player
     QMap<QString, OHLight>      _ohLights;       // YIO complex light entities
