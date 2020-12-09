@@ -433,34 +433,33 @@ void OpenHAB::getItems(bool first) {
     return QJsonObject();
 }*/
 
-void OpenHAB::updateItem(const QString name){
+void OpenHAB::updateItem(const QString name) {
     QNetworkRequest request(_url + "items/" + name);
-        request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
-        request.setRawHeader("Accept", "application/json");
-        QNetworkReply* reply = _nam.get(request);
-        QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
-            QString         answer = reply->readAll();
-            QJsonParseError parseerror;
+    request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
+    request.setRawHeader("Accept", "application/json");
+    QNetworkReply* reply = _nam.get(request);
+    QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
+        QString         answer = reply->readAll();
+        QJsonParseError parseerror;
 
-            QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
-            if (parseerror.error != QJsonParseError::NoError) {
-                jsonError(parseerror.errorString());
-                return;
-            }
-            processItem(doc);
-        });
+        QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+        if (parseerror.error != QJsonParseError::NoError) {
+            jsonError(parseerror.errorString());
+            return;
+        }
+        processItem(doc);
+    });
 }
 void OpenHAB::processItem(const QJsonDocument& result) {
-QJsonObject json = result.object();
+    QJsonObject json = result.object();
 
 
- for (int i = 0; i < _myEntities.size(); ++i) {
-     if (json.value("name") == _myEntities[i]->entity_id()) {
-         // CDebug(m_logCategory) << "Key = " << "name" << ", Value = " << json.value("name").toString();
-         processEntity(json, _myEntities[i]);
+    for (int i = 0; i < _myEntities.size(); ++i) {
+        if (json.value("name") == _myEntities[i]->entity_id()) {
+            // CDebug(m_logCategory) << "Key = " << "name" << ", Value = " << json.value("name").toString();
+            processEntity(json, _myEntities[i]);
+        }
     }
- }
-
 }
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int countFound = 0, countAll = 0;
@@ -516,16 +515,16 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
 
 
 
-        // QJsonObject item = i->toObject();
-        // QString     name = item.value("name").toString();
-        // countAll++;
+    // QJsonObject item = i->toObject();
+    // QString     name = item.value("name").toString();
+    // countAll++;
 
-        // if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
-        // QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
-        // add entity to the discovered entity list
-        // QString type = item.value("type").toString();
+    // if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
+    // QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
+    // add entity to the discovered entity list
+    // QString type = item.value("type").toString();
 
-        /*if (type == "Dimmer") {
+    /*if (type == "Dimmer") {
                 QStringList features("BRIGHTNESS");
                 addAvailableEntity(name, "light", integrationId(), label, features);
             } else if (type == "Switch") {
@@ -564,7 +563,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
             // processComplexLight(item.value("state").toString(), name);
         }*/
-/*
+    /*
 
 if (allEntities != nullptr) {
     // Check if we have got all entities, disconnect this entities
@@ -585,7 +584,7 @@ if (allEntities != nullptr) {
 
 void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     Q_ASSERT(entity != nullptr);
-    //QString ohtype = item.value("type").toString();
+    // QString ohtype = item.value("type").toString();
     QStringList test = entity->supported_features();
     if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS")) {
         processLight(item.value("state").toString(), entity, true, true);
@@ -680,7 +679,7 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
         if (value.contains(",")) {
             QStringList cs = value.split(',');
             QColor color = QColor ((cs[0].toInt()),
-                    ((cs[1].toInt() * 255) / 100),((cs[2].toInt() * 255) / 100),QColor::Hsl);
+                    ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
 
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X",
