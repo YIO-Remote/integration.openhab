@@ -447,10 +447,7 @@ void OpenHAB::updateItem(const QString name){
                 jsonError(parseerror.errorString());
                 return;
             }
-
             processItem(doc);
-
-
         });
 }
 void OpenHAB::processItem(const QJsonDocument& result) {
@@ -458,19 +455,17 @@ QJsonObject json = result.object();
 
 
  for (int i = 0; i < _myEntities.size(); ++i) {
-     if (json.value("name") == _myEntities[i]->entity_id()){
-
-         qCDebug(m_logCategory) << "Key = " << "name" << ", Value = " << json.value("name").toString();
-         processEntity(json,_myEntities[i]);
+     if (json.value("name") == _myEntities[i]->entity_id()) {
+         // CDebug(m_logCategory) << "Key = " << "name" << ", Value = " << json.value("name").toString();
+         processEntity(json, _myEntities[i]);
     }
  }
 
 }
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
-    int              countFound = 0, countAll = 0;
+    int countFound = 0, countAll = 0;
     // QSet<QString>*   allEntities = nullptr;
     // EntityInterface* entity = nullptr;
-
     /*if (first) {
         // Build a set of integrations entities (exclude media players)
         //allEntities = new QSet<QString>();
@@ -479,15 +474,13 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         }
 
     }*/
-
     // get all items
-
     QJsonArray array = result.array();
     if ( first ) {
-        //QMap<EntityInterface*, bool> tempenteties = _myEntities;
-        //_myEntities.clear();
-        //for ( auto key : tempenteties.keys() ) {
-         //   QString name_entity = key->entity_id();
+        // QMap<EntityInterface*, bool> tempenteties = _myEntities;
+        // _myEntities.clear();
+        // for ( auto key : tempenteties.keys() ) {
+        // QString name_entity = key->entity_id();
         for (int i = 0; i < _myEntities.size(); ++i) {
             for (QJsonArray::iterator j = array.begin(); j != array.end(); ++j) {
                 QJsonObject item = j->toObject();
@@ -497,7 +490,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                     countFound++;
                     processEntity(item, _myEntities[i]);
                 } else {
-                    //_myEntities.removeAt(i);
+                    // _myEntities.removeAt(i);
                 }
             }
         }
@@ -515,7 +508,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                     countFound++;
                     processEntity(item, _myEntities[i]);
                 } else {
-                    //_myEntities.removeAt(i);
+                    // _myEntities.removeAt(i);
                 }
             }
         }
@@ -686,12 +679,14 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     } else if (entity->supported_features().contains("COLOR")) {
         if (value.contains(",")) {
             QStringList cs = value.split(',');
-            QColor color = QColor ((cs[0].toInt()),((cs[1].toInt() * 255) / 100),((cs[2].toInt() * 255) / 100),QColor::Hsl);
+            QColor color = QColor ((cs[0].toInt()),
+                    ((cs[1].toInt() * 255) / 100),((cs[2].toInt() * 255) / 100),QColor::Hsl);
 
             char buffer[10];
-            snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
-            //QColor color = QColor::fromHsv(34,45,45);
-            //QString test = QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
+            snprintf(buffer, sizeof(buffer), "#%02X%02X%02X",
+                     color.red(), color.green(), color.blue());
+            // QColor color = QColor::fromHsv(34,45,45);
+            // QString test = QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
         }
     } else if (entity->supported_features().contains("COLORTEMP")) {
