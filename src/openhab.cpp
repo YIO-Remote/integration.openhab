@@ -828,7 +828,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
     qCDebug(m_logCategory) << request.rawHeaderList();
-    QNetworkReply* reply = _nam.put(request, state.toUtf8());
+    QNetworkReply* reply = _nam.post(request, state.toUtf8());
     QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
         QJsonParseError parseerror;
         QString answer = reply->readAll();
