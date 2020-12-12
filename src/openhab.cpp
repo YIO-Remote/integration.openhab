@@ -80,7 +80,6 @@ void OpenHAB::streamReceived() {
     QByteArray     rawData = _sseReply->readAll();
     QByteArrayList splitted = rawData.split('\n');
 
-
     for (QByteArray data : splitted) {
         if ((data.length() == 0) || (data.startsWith("event: message"))) {
             continue;
@@ -101,20 +100,19 @@ void OpenHAB::streamReceived() {
         QVariantMap map = doc.toVariant().toMap();
         // only process state changes
         if (!(map.value("type").toString().endsWith("ItemStateEvent"))) continue;
-        //if (!(map.value("topic").toString().endsWith("state"))) continue;
-
+        // if (!(map.value("topic").toString().endsWith("state"))) continue;
         // get item name from the topic string
         // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
-        QString name = map.value("topic").toString().split('/')[2];
+        QString          name = map.value("topic").toString().split('/')[2];
         EntityInterface* entity = m_entities->getEntityInterface(name);
         if (entity != nullptr) {
             QString value =
-                    (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+                (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
-            if ( entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
+            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS")) {
                 processLight(value, entity, true, false);
-            } else if ( entity->type() == "light" && entity->supported_features().contains("COLOR") ) {
+            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR")) {
                 processComplexLight(value, entity);
             } else if (entity->type() == "light") {
                 processLight(value, entity, false, false);
@@ -159,12 +157,12 @@ void OpenHAB::onSseTimeout() {
         QObject* param = this;
 
         m_notifications->add(
-                    true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                    [](QObject* param) {
-            Integration* i = qobject_cast<Integration*>(param);
-            i->connect();
-        },
-        param);
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            param);
 
         _tries = 0;
     } else {
@@ -409,7 +407,7 @@ void OpenHAB::getItems(bool first) {
         QJsonParseError parseerror;
         QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
         if (parseerror.error != QJsonParseError::NoError) {
-            qCDebug(m_logCategory) << answer <<_url + "items";
+            qCDebug(m_logCategory) << answer << _url + "items";
             jsonError(parseerror.errorString());
             return;
         }
@@ -444,7 +442,7 @@ void OpenHAB::getItem(const QString name) {
         QString         answer = reply->readAll();
         QJsonParseError parseerror;
 
-        QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+        QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
         if (parseerror.error != QJsonParseError::NoError) {
             jsonError(parseerror.errorString());
             return;
@@ -454,7 +452,6 @@ void OpenHAB::getItem(const QString name) {
 }
 void OpenHAB::processItem(const QJsonDocument& result) {
     QJsonObject json = result.object();
-
 
     for (int i = 0; i < _myEntities.size(); ++i) {
         if (json.value("name") == _myEntities[i]->entity_id()) {
@@ -477,7 +474,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     }*/
     // get all items
     QJsonArray array = result.array();
-    if ( first ) {
+    if (first) {
         // QMap<EntityInterface*, bool> tempenteties = _myEntities;
         // _myEntities.clear();
         // for ( auto key : tempenteties.keys() ) {
@@ -495,9 +492,9 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
                 }
             }
         }
-        if ( (_myEntities.count() - countFound) > 0 ) {
-            m_notifications->add(true, "openHAB - entities missing : "
-                                 + QString::number((_myEntities.count() - countFound)));
+        if ((_myEntities.count() - countFound) > 0) {
+            m_notifications->add(true,
+                                 "openHAB - entities missing : " + QString::number((_myEntities.count() - countFound)));
         }
     } else {
         for (int i = 0; i < _myEntities.size(); ++i) {
@@ -514,8 +511,6 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
         }
     }
-
-
 
     // QJsonObject item = i->toObject();
     // QString     name = item.value("name").toString();
@@ -604,8 +599,7 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     if (entity->type() == "blind") {
         processBlind(item.value("state").toString(), entity);
     } else {
-        qCDebug(m_logCategory)
-                << QString("Unsupported openHab type %1 for entity %s")<< entity->entity_id();
+        qCDebug(m_logCategory) << QString("Unsupported openHab type %1 for entity %s") << entity->entity_id();
     }
 }
 
@@ -615,10 +609,10 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
 
     brightness = value.toInt(&isInt);
 
-    if ( !hasValidDimmerInfo ) {
+    if (!hasValidDimmerInfo) {
         isDimmer = isInt;
     }
-    if ( isDimmer ) {
+    if (isDimmer) {
         // int  brightness = value.toInt();
         bool on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
@@ -635,7 +629,7 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
             entity->setState(LightDef::OFF);
         } else {
             qCDebug(m_logCategory)
-                    << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
+                << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
         }
         if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
             qCDebug(m_logCategory) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
@@ -680,12 +674,11 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     } else if (entity->supported_features().contains("COLOR")) {
         if (value.contains(",")) {
             QStringList cs = value.split(',');
-            QColor color = QColor((cs[0].toInt()),
-                    ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
+            QColor      color =
+                QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
 
             char buffer[10];
-            snprintf(buffer, sizeof(buffer), "#%02X%02X%02X",
-                     color.red(), color.green(), color.blue());
+            snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
             // QColor color = QColor::fromHsv(34,45,45);
             // QString test = QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
@@ -759,43 +752,42 @@ const QString* OpenHAB::lookupComplexLightItem(const QString& entityId, LightDef
 }
 */
 void OpenHAB::sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) {
-    QString state;
-    QColor color;
+    QString      state;
+    QColor       color;
     QVariantMap  data;
     QVariantList list;
 
-
     if (type == "light") {
         switch (static_cast<LightDef::Commands>(command)) {
-        case LightDef::C_OFF:
-            state = "OFF";
-            break;
-        case LightDef::C_ON:
-            state = "ON";
-            break;
-        case LightDef::C_BRIGHTNESS:
-            state = QString::number(param.toInt());
-            break;
-        case LightDef::C_COLOR:
-            color = QColor(param.toString());
-            state = QString::number(color.hue()) + ',' + QString::number(color.saturationF() * 100) + ',' +
-                    QString::number(color.lightnessF() * 100);
-            break;
-        default:
-            qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
-            return;
+            case LightDef::C_OFF:
+                state = "OFF";
+                break;
+            case LightDef::C_ON:
+                state = "ON";
+                break;
+            case LightDef::C_BRIGHTNESS:
+                state = QString::number(param.toInt());
+                break;
+            case LightDef::C_COLOR:
+                color = QColor(param.toString());
+                state = QString::number(color.hue()) + ',' + QString::number(color.saturationF() * 100) + ',' +
+                        QString::number(color.lightnessF() * 100);
+                break;
+            default:
+                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+                return;
         }
     } else if (type == "switch") {
         switch (static_cast<SwitchDef::Commands>(command)) {
-        case SwitchDef::C_OFF:
-            state = "OFF";
-            break;
-        case SwitchDef::C_ON:
-            state = "ON";
-            break;
-        default:
-            qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
-            return;
+            case SwitchDef::C_OFF:
+                state = "OFF";
+                break;
+            case SwitchDef::C_ON:
+                state = "ON";
+                break;
+            default:
+                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+                return;
         }
     } else {
         qCInfo(m_logCategory) << "Command" << command << " not supported for " << entityId;
@@ -810,7 +802,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "text/plain");
     request.setRawHeader("Accept", "application/json");
     QList<QByteArray> reqHeaders = request.rawHeaderList();
-    foreach(QByteArray reqName, reqHeaders) {
+    foreach (QByteArray reqName, reqHeaders) {
         QByteArray reqValue = request.rawHeader(reqName);
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
