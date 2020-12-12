@@ -829,11 +829,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
                 jsonError(parseerror.errorString());
                 return;
             }
-            QJsonObject json = doc.object();
-            if (json.contains("error")) {
-                qCDebug(m_logCategory) << "Reply: " << doc.toJson(QJsonDocument::Compact).toStdString().c_str();
-                QStringList d = json.keys();
-            }
+            qCDebug(m_logCategory) << "Reply: " << doc.toJson(QJsonDocument::Compact).toStdString().c_str();
         }
         return;
     });
