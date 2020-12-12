@@ -115,7 +115,7 @@ void OpenHAB::streamReceived() {
             if ( entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
                 processLight(value, entity, true, false);
             } else if ( entity->type() == "light" && entity->supported_features().contains("COLOR") ) {
-                processComplexLight(value,entity);
+                processComplexLight(value, entity);
             } else if (entity->type() == "light") {
                 processLight(value, entity, false, false);
             } else if (entity->type() == "blind") {
