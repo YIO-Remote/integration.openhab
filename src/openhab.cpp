@@ -806,7 +806,7 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
     }
     qCDebug(m_logCategory) << "Command" << command << " - " << state << " for " << entityId;
     openHABCommand(entityId, state);
-    getItem(entityId);
+    // getItem(entityId);
 }
 
 void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
