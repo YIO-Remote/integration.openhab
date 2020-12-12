@@ -802,7 +802,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "text/plain");
     request.setRawHeader("Accept", "application/json");
     QList<QByteArray> reqHeaders = request.rawHeaderList();
-    foreach (QByteArray reqName, reqHeaders) {
+    foreach ( QByteArray reqName, reqHeaders) {
         QByteArray reqValue = request.rawHeader(reqName);
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
