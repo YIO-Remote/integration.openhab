@@ -598,9 +598,10 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     }
     if (entity->type() == "blind") {
         processBlind(item.value("state").toString(), entity);
-    } else {
-        qCDebug(m_logCategory) << QString("Unsupported openHab type %1 for entity %s") << entity->entity_id();
     }
+    /*else {
+        qCDebug(m_logCategory) << QString("Unsupported openHab type %1 for entity %s") << entity->entity_id();
+    }*/
 }
 
 void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo) {
