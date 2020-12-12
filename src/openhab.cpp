@@ -130,13 +130,11 @@ void OpenHAB::streamReceived() {
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             //processComplexLight(value, name);
         }*/
-        } else if(entity == nullptr) {
+        } else if (entity == nullptr) {
             // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
         } else {
             qCDebug(m_logCategory) << QString("Entity %1 is offline").arg(name);
         }
-
-
     }
 
     if (_wasDisconnected) {
@@ -610,7 +608,7 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
         if (entity->type() == "blind") {
             processBlind(item.value("state").toString(), entity);
         }
-    }else {
+    } else {
         qCDebug(m_logCategory) << QString("Entity %s is offline").arg(entity->entity_id());
     }
 }
