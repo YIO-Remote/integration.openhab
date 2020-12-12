@@ -115,7 +115,7 @@ class OpenHAB : public Integration {
     void processSwitch(const QString& value, EntityInterface* entity);
     void processComplexLight(const QString& value, EntityInterface* entity);
     void openHABCommand(const QString& itemId, const QString& state);
-    void updateItem(const QString name);
+    void getItem(const QString name);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);

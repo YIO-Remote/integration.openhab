@@ -100,7 +100,8 @@ void OpenHAB::streamReceived() {
 
         QVariantMap map = doc.toVariant().toMap();
         // only process state changes
-        if (!(map.value("topic").toString().endsWith("statechanged"))) continue;
+        if (!(map.value("type").toString().endsWith("ItemStateEvent"))) continue;
+        //if (!(map.value("topic").toString().endsWith("state"))) continue;
 
         // get item name from the topic string
         // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
@@ -112,8 +113,9 @@ void OpenHAB::streamReceived() {
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
             if ( entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") ) {
-                // processLight(value, entity,
                 processLight(value, entity, true, false);
+            } else if ( entity->type() == "light" && entity->supported_features().contains("COLOR") ) {
+                processComplexLight(value,entity);
             } else if (entity->type() == "light") {
                 processLight(value, entity, false, false);
             } else if (entity->type() == "blind") {
@@ -433,7 +435,7 @@ void OpenHAB::getItems(bool first) {
     return QJsonObject();
 }*/
 
-void OpenHAB::updateItem(const QString name) {
+void OpenHAB::getItem(const QString name) {
     QNetworkRequest request(_url + "items/" + name);
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
     request.setRawHeader("Accept", "application/json");
@@ -800,7 +802,7 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
     }
     qCDebug(m_logCategory) << "Command" << command << " - " << state << " for " << entityId;
     openHABCommand(entityId, state);
-    updateItem(entityId);
+    getItem(entityId);
 }
 
 void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
@@ -816,6 +818,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     QNetworkReply* reply = _nam.post(request, state.toUtf8());
     QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
         QString answer = reply->readAll();
+        qCDebug(m_logCategory) << answer;
         return;
     });
 }
