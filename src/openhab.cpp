@@ -666,22 +666,30 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     if (entity == nullptr) return;
 
     // if (lightItem.attribute == LightDef::BRIGHTNESS) {
-    if (entity->supported_features().contains("BRIGHTNESS")) {
+    /*if (entity->supported_features().contains("BRIGHTNESS")) {
         int  brightness = value.toInt();
         bool on = brightness == 100;
         entity->setState(on ? LightDef::ON : LightDef::OFF);
         entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
-    } else if (entity->supported_features().contains("COLOR")) {
-        if (value.contains(",")) {
+    } else*/
+    if (entity->supported_features().contains("COLOR")) {
+        QRegExp regex_colorvalue("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?");
+        QRegExp regex_brightnessvalue("[0-9]?[0-9]");
+        if (value.contains(regex_colorvalue)) {
             QStringList cs = value.split(',');
             QColor      color =
                 QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
-
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
             // QColor color = QColor::fromHsv(34,45,45);
             // QString test = QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
+        } else if (value.contains(regex_brightnessvalue)) {
+            int  brightness = value.toInt();
+            bool on = brightness == 100;
+            entity->setState(on ? LightDef::ON : LightDef::OFF);
+            entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
+        } else {
         }
     } else if (entity->supported_features().contains("COLORTEMP")) {
         int colortemp = value.toInt();
@@ -802,7 +810,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "text/plain");
     request.setRawHeader("Accept", "application/json");
     QList<QByteArray> reqHeaders = request.rawHeaderList();
-    foreach(QByteArray reqName, reqHeaders) {
+    foreach (QByteArray reqName, reqHeaders) {
         QByteArray reqValue = request.rawHeader(reqName);
         qCDebug(m_logCategory) << reqName << ": " << reqValue;
     }
