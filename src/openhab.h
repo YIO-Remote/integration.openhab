@@ -128,7 +128,8 @@ class OpenHAB : public Integration {
     QString                     _url;
     QNetworkAccessManager       _nam;
     QList<EntityInterface*>     _myEntities;     // Entities of this integration
-    QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
+    QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
+                                       "[0-9]?[0-9]?[0-9]?[0-9]?");
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     // QMap<EntityInterface*, bool> _myEntities;
     /*QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities

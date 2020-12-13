@@ -111,9 +111,11 @@ void OpenHAB::streamReceived() {
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
-            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") && regex_brightnessvalue.exactMatch(value)) {
+            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
+                    regex_brightnessvalue.exactMatch(value)) {
                 processLight(value, entity, true);
-            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") && regex_colorvalue.exactMatch(value)) {
+            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
+                       regex_colorvalue.exactMatch(value)) {
                 processComplexLight(value, entity);
             } else if (entity->type() == "light") {
                 processLight(value, entity, false);
@@ -208,10 +210,10 @@ void OpenHAB::connect() {
         }
     }*/
     // if (_ohPlayers.count() > 0) {
-    //getThings();
-    //} else {
+    // getThings();
+    // } else {
     //    getItems(true);
-    //}
+    // }
     getItems(true);
 
     _tries = 0;
@@ -618,10 +620,7 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
 void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer) {
     // int  brightness;
     // bool isInt;
-
-    //brightness = value.toInt(&isInt);
-
-
+    // brightness = value.toInt(&isInt);
     if (!(value.contains("ON")) && !(value.contains("OFF")) && isDimmer) {
         // int  brightness = value.toInt();
         // bool on = brightness == 100;
