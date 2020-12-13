@@ -102,15 +102,15 @@ class OpenHAB : public Integration {
 
     void startSse();
 
-    void getThings();
+    // void getThings();
     void getItems(bool first = false);
     void jsonError(const QString& error);
-    void searchThings(const QJsonDocument& result);
+    // void searchThings(const QJsonDocument& result);
     void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
     void processEntity(const QJsonObject& item, EntityInterface* entity);
     void processPlayerItem(const QString& item, const QString& name);
-    void processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo = true);
+    void processLight(const QString& value, EntityInterface* entity, bool isDimmer);
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
     void processComplexLight(const QString& value, EntityInterface* entity);
@@ -128,6 +128,8 @@ class OpenHAB : public Integration {
     QString                     _url;
     QNetworkAccessManager       _nam;
     QList<EntityInterface*>     _myEntities;     // Entities of this integration
+    QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
+    QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     // QMap<EntityInterface*, bool> _myEntities;
     /*QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
     QMap<QString, OHPlayerItem> _ohPlayerItems;  // OpenHAB items associated with player

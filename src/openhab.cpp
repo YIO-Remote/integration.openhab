@@ -106,16 +106,17 @@ void OpenHAB::streamReceived() {
         QString          name = map.value("topic").toString().split('/')[2];
         EntityInterface* entity = m_entities->getEntityInterface(name);
         if (entity != nullptr && entity->connected()) {
+
             QString value =
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
             // entity library
-            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS")) {
-                processLight(value, entity, true, false);
-            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR")) {
+            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") && regex_brightnessvalue.exactMatch(value)) {
+                processLight(value, entity, true);
+            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") && regex_colorvalue.exactMatch(value)) {
                 processComplexLight(value, entity);
             } else if (entity->type() == "light") {
-                processLight(value, entity, false, false);
+                processLight(value, entity, false);
             } else if (entity->type() == "blind") {
                 processBlind(value, entity);
             } else if (entity->type() == "switch") {
@@ -139,7 +140,7 @@ void OpenHAB::streamReceived() {
 
     if (_wasDisconnected) {
         _wasDisconnected = false;
-        getItems();
+        getItems(true);
     }
 }
 
@@ -207,10 +208,11 @@ void OpenHAB::connect() {
         }
     }*/
     // if (_ohPlayers.count() > 0) {
-    getThings();
+    //getThings();
     //} else {
     //    getItems(true);
     //}
+    getItems(true);
 
     _tries = 0;
     _userDisconnect = false;
@@ -253,15 +255,15 @@ void OpenHAB::jsonError(const QString& error) {
 }
 
 void OpenHAB::onPollingTimer() {
-    getItems();
+    getItems(false);
 }
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
 }
 
-void OpenHAB::getThings() {
-    /*QNetworkRequest request(_url + "things");
+/*void OpenHAB::getThings() {
+    QNetworkRequest request(_url + "things");
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
     request.setRawHeader("Accept", "application/json");
     QNetworkReply* reply = _nam.get(request);
@@ -275,10 +277,10 @@ void OpenHAB::getThings() {
         }
         searchThings(doc);
         getItems(true);
-    });*/
+    });
     getItems(true);
 }
-
+*/
 /*void OpenHAB::searchThings(const QJsonDocument& result) {
     // get all things
     QJsonArray array = result.array();
@@ -469,9 +471,9 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     // QSet<QString>*   allEntities = nullptr;
     // EntityInterface* entity = nullptr;
     /*if (first) {
-        // Build a set of integrations entities (exclude media players)
-        //allEntities = new QSet<QString>();
-        /*for (QList<EntityInterface*>::iterator i = tempEntities.begin(); i != tempEntities.end(); ++i) {
+         Build a set of integrations entities (exclude media players)
+        allEntities = new QSet<QString>();
+        for (QList<EntityInterface*>::iterator i = tempEntities.begin(); i != tempEntities.end(); ++i) {
             allEntities->insert((*i)->entity_id());
         }
 
@@ -592,14 +594,14 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     // QString ohtype = item.value("type").toString();
     QStringList test = entity->supported_features();
     if (entity->connected()) {
-        if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS")) {
-            processLight(item.value("state").toString(), entity, true, true);
+        if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") && regex_brightnessvalue.exactMatch(item.value("state").toString())) {
+            processLight(item.value("state").toString(), entity, true);
         }
-        if (entity->type() == "light" && entity->supported_features().contains("COLOR")) {
+        if (entity->type() == "light" && entity->supported_features().contains("COLOR") && regex_colorvalue.exactMatch(item.value("state").toString())) {
             processComplexLight(item.value("state").toString(), entity);
         }
         if (entity->type() == "light") {
-            processLight(item.value("state").toString(), entity, false, false);
+            processLight(item.value("state").toString(), entity, false);
         }
 
         if (entity->type() == "switch") {
@@ -613,37 +615,35 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     }
 }
 
-void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer, bool hasValidDimmerInfo) {
-    int  brightness;
-    bool isInt;
+void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer) {
+    // int  brightness;
+    // bool isInt;
 
-    brightness = value.toInt(&isInt);
+    //brightness = value.toInt(&isInt);
 
-    if (!hasValidDimmerInfo) {
-        isDimmer = isInt;
-    }
-    if (isDimmer) {
+
+    if (!(value.contains("ON")) && !(value.contains("OFF")) && isDimmer) {
         // int  brightness = value.toInt();
-        bool on = brightness == 100;
-        entity->setState(on ? LightDef::ON : LightDef::OFF);
+        // bool on = brightness == 100;
+        entity->setState(value > 0 ? LightDef::ON : LightDef::OFF);
         if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
-            entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
+            entity->updateAttrByIndex(LightDef::BRIGHTNESS, value);
         } else {
             qCDebug(m_logCategory) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
         }
     } else {
-        QString state = value.toUpper();
-        if (state == "ON") {
+        // QString state = value.toUpper();
+        if (value.toUpper() == "ON") {
             entity->setState(LightDef::ON);
-        } else if (state == "OFF") {
+        } else if (value.toUpper() == "OFF") {
             entity->setState(LightDef::OFF);
         } else {
             qCDebug(m_logCategory)
-                    << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(state);
+                    << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(value.toUpper());
         }
-        if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
+        /*if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
             qCDebug(m_logCategory) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
-        }
+        }*/
     }
 }
 
@@ -683,9 +683,7 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
         entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
     } else*/
     if (entity->supported_features().contains("COLOR")) {
-        QRegExp regex_colorvalue("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?");
-        QRegExp regex_brightnessvalue("[0-9]?[0-9]");
-        if (value.contains(regex_colorvalue)) {
+        if (regex_colorvalue.exactMatch(value)) {
             QStringList cs = value.split(',');
             QColor      color =
                     QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
@@ -694,11 +692,19 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
             // QColor color = QColor::fromHsv(34,45,45);
             // QString test = QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
-        } else if (value.contains(regex_brightnessvalue) && entity->supported_features().contains("BRIGHTNESS")) {
+        } else if (regex_brightnessvalue.exactMatch(value) && entity->supported_features().contains("BRIGHTNESS")) {
             int  brightness = value.toInt();
             bool on = brightness == 100;
             entity->setState(on ? LightDef::ON : LightDef::OFF);
             entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
+        } else if (value.contains("ON") || value.contains("OFF")) {
+            if (value.toUpper() == "ON") {
+                entity->setState(LightDef::ON);
+            } else if (value.toUpper() == "OFF") {
+                entity->setState(LightDef::OFF);
+            } else {
+                qCInfo(m_logCategory) << "Wrong or not supported Color/Brightness command for " << entity->entity_id();
+            }
         } else {
             qCInfo(m_logCategory) << "Wrong or not supported Color/Brightness command for " << entity->entity_id();
         }
