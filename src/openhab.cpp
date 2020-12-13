@@ -100,7 +100,6 @@ void OpenHAB::streamReceived() {
         QVariantMap map = doc.toVariant().toMap();
         // only process state changes
         if (!(map.value("type").toString().endsWith("ItemStateEvent"))) continue;
-        // if (!(map.value("topic").toString().endsWith("state"))) continue;
         // get item name from the topic string
         // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
         QString          name = map.value("topic").toString().split('/')[2];
@@ -123,15 +122,6 @@ void OpenHAB::streamReceived() {
             } else if (entity->type() == "switch") {
                 processSwitch(value, entity);
             }
-            /*} else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
-            QString value =
-                    (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
-            processPlayerItem(value, name);
-        } else if (_ohLightItems.contains(name) && _ohLights[_ohLightItems[name].lightId].connected) {
-            QString value =
-                    (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
-            //processComplexLight(value, name);
-        }*/
         } else if (entity == nullptr) {
             // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
         } else {
@@ -196,23 +186,6 @@ void OpenHAB::connect() {
 
     _myEntities = m_entities->getByIntegration(integrationId());
 
-    // int i = m_entities->getByIntegration(integrationId()).count();
-    /*for ( int i = 0; i < m_entities->getByIntegration(integrationId()).count(); ++i ) {
-        _myEntities.insert(m_entities->getByIntegration(integrationId())[i], false);
-    }
-*/
-
-    // Look for mediaplayers
-    /*for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
-        if ((*i)->type() == "media_player") {
-            _ohPlayers.insert((*i)->entity_id(), OHPlayer());
-        }
-    }*/
-    // if (_ohPlayers.count() > 0) {
-    // getThings();
-    // } else {
-    //    getItems(true);
-    // }
     getItems(true);
 
     _tries = 0;
@@ -263,146 +236,6 @@ void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility ac
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
 }
 
-/*void OpenHAB::getThings() {
-    QNetworkRequest request(_url + "things");
-    request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
-    request.setRawHeader("Accept", "application/json");
-    QNetworkReply* reply = _nam.get(request);
-    QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
-        QString         answer = reply->readAll();
-        QJsonParseError parseerror;
-        QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
-        if (parseerror.error != QJsonParseError::NoError) {
-            jsonError(parseerror.errorString());
-            return;
-        }
-        searchThings(doc);
-        getItems(true);
-    });
-    getItems(true);
-}
-*/
-/*void OpenHAB::searchThings(const QJsonDocument& result) {
-    // get all things
-    QJsonArray array = result.array();
-    for (QJsonArray::iterator i = array.begin(); i != array.end(); ++i) {
-        QJsonObject item = i->toObject();
-        QString     uid = item.value("UID").toString();
-        // search new things
-        QJsonArray channels = item.value("channels").toArray();
-        int        mp_mandatory = 0, li_mandatory = 0;
-        int        mp_optional = 0, li_optional = 0;
-        auto       mp_manchan = MediaPlayerChannels::mandatory;
-        auto       li_manchan = LightChannels::mandatory;
-
-        QStringList mp_features = {"PLAY", "PAUSE", "NEXT", "PREVIOUS", "STOP"};
-        QStringList li_features = {"BRIGHTNESS"};
-        for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
-            QJsonObject channel = i->toObject();
-            QJsonArray  linkedItems = channel.value("linkedItems").toArray();
-            if (linkedItems.count() == 0) {
-                continue;
-            }
-            QString id = channel.value("id").toString();
-
-            // search for media players
-            if (mp_manchan.contains(MediaPlayerChannels::channels[id])) {
-                mp_manchan.removeAll(MediaPlayerChannels::channels[id]);
-                mp_mandatory++;
-            } else if (MediaPlayerChannels::channels.contains(id)) {
-                mp_optional++;
-                if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::VOLUME) {
-                    mp_features << "VOLUME"
-                                << "VOLUME_SET";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::SOURCE) {
-                    mp_features << "SOURCE";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MUTED) {
-                    mp_features << "MUTED";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIAARTIST) {
-                    mp_features << "MEDIA_ARTIST";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIATITLE) {
-                    mp_features << "MEDIA_TITLE";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIAPROGRESS) {
-                    mp_features << "MEDIA_POSITION";
-                } else if (MediaPlayerChannels::channels.value(id) == MediaPlayerDef::MEDIADURATION) {
-                    mp_features << "MEDIA_DURATION";
-                }
-            }
-
-            // search for lights
-            if (li_manchan.contains(LightChannels::channels[id])) {
-                li_manchan.removeAll(LightChannels::channels[id]);
-                li_mandatory++;
-            } else if (LightChannels::channels.contains(id)) {
-                li_optional++;
-                if (LightChannels::channels.value(id) == LightDef::COLOR) {
-                    li_features << "COLOR";
-                } else if (LightChannels::channels.value(id) == LightDef::COLORTEMP) {
-                    mp_features << "COLORTEMP";
-                }
-            }
-        }
-
-        // check if it is a valid media player
-        if ((mp_mandatory == MediaPlayerChannels::mandatory.length()) &&
-                (mp_optional >= MediaPlayerChannels::channelcount)) {
-            // add the media player to the list
-            addAvailableEntity(uid, "media_player", integrationId(), item.value("label").toString(), mp_features);
-
-            // add the channels from the recognized media player to the channel list
-            for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
-                QJsonObject channel = i->toObject();
-                QJsonArray  linkedItems = channel.value("linkedItems").toArray();
-                if (linkedItems.count() == 0) {
-                    continue;
-                }
-
-                QString linkItem = linkedItems[0].toString();
-                QString id = channel.value("id").toString();
-                if (MediaPlayerChannels::channels.contains(id)) {
-                    _ohPlayerItems.insert(linkItem, OHPlayerItem(uid, MediaPlayerChannels::channels[id]));
-                }
-            }
-
-            // add player to own player list and set it as connected if we have it in our entity list
-            _ohPlayers.insert(uid, OHPlayer());
-            for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
-                if (((*i)->type() == "media_player") && ((*i)->entity_id() == uid)) {
-                    _ohPlayers[uid].connected = true;
-                }
-            }
-        }
-
-        // check if it is a valid complex light
-        if ((li_mandatory == LightChannels::mandatory.length()) && (li_optional >= LightChannels::channelcount)) {
-            // add the light to the list
-            addAvailableEntity(uid, "light", integrationId(), item.value("label").toString(), li_features);
-
-            // add the channels from the recognized media player to the channel list
-            for (QJsonArray::iterator i = channels.begin(); i != channels.end(); ++i) {
-                QJsonObject channel = i->toObject();
-                QJsonArray  linkedItems = channel.value("linkedItems").toArray();
-                if (linkedItems.count() == 0) {
-                    continue;
-                }
-
-                QString linkItem = linkedItems[0].toString();
-                QString id = channel.value("id").toString();
-                if (LightChannels::channels.contains(id)) {
-                    _ohLightItems.insert(linkItem, OHLightItem(uid, LightChannels::channels[id]));
-                }
-            }
-
-            // add light to own light list and set it as connected if we have it in our entity list
-            _ohLights.insert(uid, OHLight());
-            for (QList<EntityInterface*>::iterator i = _myEntities.begin(); i != _myEntities.end(); ++i) {
-                if (((*i)->type() == "light") && ((*i)->entity_id() == uid)) {
-                    _ohLights[uid].connected = true;
-                }
-            }
-        }
-    }
-}*/
 
 void OpenHAB::getItems(bool first) {
     QNetworkRequest request(_url + "items");
@@ -427,18 +260,6 @@ void OpenHAB::getItems(bool first) {
         processItems(doc, first);
     });
 }
-
-/*QJsonObject findValueFromJsonArray(QJsonArray arr, QString key, QString val, bool caseSensitive) {
-    val = caseSensitive ? val : val.toLower();
-    for (QJsonArray::iterator i = arr.begin(); i != arr.end(); ++i) {
-        QJsonObject obj = i->toObject();
-        QString     str = caseSensitive ? obj.value(key).toString() : obj.value(key).toString().toLower();
-        if (str == val) {
-            return obj;
-        }
-    }
-    return QJsonObject();
-}*/
 
 void OpenHAB::getItem(const QString name) {
     QNetworkRequest request(_url + "items/" + name);
@@ -469,24 +290,9 @@ void OpenHAB::processItem(const QJsonDocument& result) {
 }
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int countFound = 0, countAll = 0;
-    // QSet<QString>*   allEntities = nullptr;
-    // EntityInterface* entity = nullptr;
-    /*if (first) {
-         Build a set of integrations entities (exclude media players)
-        allEntities = new QSet<QString>();
-        for (QList<EntityInterface*>::iterator i = tempEntities.begin(); i != tempEntities.end(); ++i) {
-            allEntities->insert((*i)->entity_id());
-        }
 
-    }*/
-    // get all items
     QJsonArray array = result.array();
     if (first) {
-        // QMap<EntityInterface*, bool> tempenteties = _myEntities;
-        // _myEntities.clear();
-        // for ( auto key : tempenteties.keys() ) {
-        // QString name_entity = key->entity_id();
-        // set every entity to connected false
         for (int i = 0; i < _myEntities.size(); ++i) {
             _myEntities[i]->setConnected(false);
         }
@@ -522,72 +328,6 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
         }
     }
-
-    // QJsonObject item = i->toObject();
-    // QString     name = item.value("name").toString();
-    // countAll++;
-
-    // if (first && !_ohPlayerItems.contains(name) && !_ohLightItems.contains(name)) {
-    // QString label = (item.value("label").toString().length() > 0) ? item.value("label").toString() : name;
-    // add entity to the discovered entity list
-    // QString type = item.value("type").toString();
-
-    /*if (type == "Dimmer") {
-                QStringList features("BRIGHTNESS");
-                addAvailableEntity(name, "light", integrationId(), label, features);
-            } else if (type == "Switch") {
-                QStringList features("POWER");
-                addAvailableEntity(name, "switch", integrationId(), label, features);
-            } else if (type == "Rollershutter") {
-                QStringList features({"OPEN", "CLOSE", "STOP", "POSITION"});
-                addAvailableEntity(name, "blind", integrationId(), label, features);
-            }*/
-
-    /*
-        entity = m_entities->getEntityInterface(name);
-        if (entity != nullptr) {
-            countFound++;
-            if (allEntities != nullptr) {
-                // found, remove from allEntites
-                allEntities->remove(name);
-            }
-            // process entity
-
-
-            // try player
-        } else if (_ohPlayerItems.contains(name) && _ohPlayers[_ohPlayerItems[name].playerId].connected) {
-            if (allEntities != nullptr) {
-                if (allEntities->remove(_ohPlayerItems[name].playerId)) {
-                    countFound++;
-                }
-            }
-            processPlayerItem(item.value("state").toString(), name);
-            // try light
-        } else if (_ohLightItems.contains(name) && _ohLights[_ohLightItems[name].lightId].connected) {
-            if (allEntities != nullptr) {
-                if (allEntities->remove(_ohLightItems[name].lightId)) {
-                    countFound++;
-                }
-            }
-            // processComplexLight(item.value("state").toString(), name);
-        }*/
-    /*
-
-if (allEntities != nullptr) {
-    // Check if we have got all entities, disconnect this entities
-    for (const QString& entityId : *allEntities) {
-        qCInfo(m_logCategory) << "missing: " << entityId;
-        entity = m_entities->getEntityInterface(entityId);
-        entity->setConnected(false);
-    }
-    int missing = allEntities->count();
-    if (missing > 0) {
-
-    }
-    delete allEntities;
-    qCInfo(m_logCategory)
-            << QString("Got %1 items, %2 for YIO, %3 missing").arg(countAll).arg(countFound).arg(missing);
-}*/
 }
 
 void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
@@ -619,9 +359,6 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
 }
 
 void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer) {
-    // int  brightness;
-    // bool isInt;
-    // brightness = value.toInt(&isInt);
     if (!(value.contains("ON")) && !(value.contains("OFF")) && isDimmer) {
         // int  brightness = value.toInt();
         // bool on = brightness == 100;
@@ -632,7 +369,6 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
             qCDebug(m_logCategory) << QString("OpenHab Dimmer %1 not supporting BRIGHTNESS").arg(entity->entity_id());
         }
     } else {
-        // QString state = value.toUpper();
         if (value.toUpper() == "ON") {
             entity->setState(LightDef::ON);
         } else if (value.toUpper() == "OFF") {
@@ -641,9 +377,6 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
             qCDebug(m_logCategory)
                     << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(value.toUpper());
         }
-        /*if (entity->isSupported(LightDef::F_BRIGHTNESS)) {
-            qCDebug(m_logCategory) << QString("OpenHab Switch %1 does not support BRIGHTNESS").arg(entity->entity_id());
-        }*/
     }
 }
 
@@ -671,17 +404,8 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 }
 
 void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity) {
-    // OHLightItem      lightItem = _ohLightItems[name];
-    // EntityInterface* entity = m_entities->getEntityInterface(lightItem.lightId);
-    if (entity == nullptr) return;
 
-    // if (lightItem.attribute == LightDef::BRIGHTNESS) {
-    /*if (entity->supported_features().contains("BRIGHTNESS")) {
-        int  brightness = value.toInt();
-        bool on = brightness == 100;
-        entity->setState(on ? LightDef::ON : LightDef::OFF);
-        entity->updateAttrByIndex(LightDef::BRIGHTNESS, brightness);
-    } else*/
+    if (entity == nullptr) return;
     if (entity->supported_features().contains("COLOR")) {
         if (regex_colorvalue.exactMatch(value)) {
             QStringList cs = value.split(',');
@@ -716,68 +440,7 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     }
 }
 
-/*void OpenHAB::processPlayerItem(const QString& value, const QString& name) {
-    OHPlayerItem     playerItem = _ohPlayerItems[name];
-    QString          state = value.toUpper();
-    EntityInterface* entity = m_entities->getEntityInterface(playerItem.playerId);
-    if (entity == nullptr) return;
 
-    switch (playerItem.attribute) {
-    case MediaPlayerDef::STATE:
-        if (state == "ON") {
-            entity->setState(MediaPlayerDef::ON);
-        } else if (state == "OFF") {
-            entity->setState(MediaPlayerDef::OFF);
-        } else if (state == "PLAY") {
-            entity->setState(MediaPlayerDef::PLAYING);
-        } else if (state == "PAUSE") {
-            entity->setState(MediaPlayerDef::IDLE);
-        }
-        break;
-    case MediaPlayerDef::VOLUME:
-        entity->updateAttrByIndex(MediaPlayerDef::VOLUME, state.toInt());
-        break;
-    case MediaPlayerDef::MUTED:
-        entity->updateAttrByIndex(MediaPlayerDef::MUTED, state == "ON");
-        break;
-    case MediaPlayerDef::SOURCE:
-        entity->updateAttrByIndex(MediaPlayerDef::SOURCE, state);
-        break;
-    case MediaPlayerDef::MEDIAARTIST:
-        entity->updateAttrByIndex(MediaPlayerDef::MEDIAARTIST, state);
-        break;
-    case MediaPlayerDef::MEDIATITLE:
-        entity->updateAttrByIndex(MediaPlayerDef::MEDIATITLE, state);
-        break;
-    case MediaPlayerDef::MEDIADURATION:
-        entity->updateAttrByIndex(MediaPlayerDef::MEDIADURATION, state);
-        break;
-    case MediaPlayerDef::MEDIAPROGRESS:
-        entity->updateAttrByIndex(MediaPlayerDef::MEDIAPROGRESS, state);
-        break;
-    default:
-        break;
-    }
-}
-
-const QString* OpenHAB::lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr) {
-    for (QMap<QString, OHPlayerItem>::iterator i = _ohPlayerItems.begin(); i != _ohPlayerItems.end(); ++i) {
-        if (i.value().attribute == attr && i.value().playerId == entityId) {
-            return &i.key();
-        }
-    }
-    return nullptr;
-}
-
-const QString* OpenHAB::lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr) {
-    for (QMap<QString, OHLightItem>::iterator i = _ohLightItems.begin(); i != _ohLightItems.end(); ++i) {
-        if (i.value().attribute == attr && i.value().lightId == entityId) {
-            return &i.key();
-        }
-    }
-    return nullptr;
-}
-*/
 void OpenHAB::sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) {
     QString      state;
     QColor       color;
@@ -821,7 +484,6 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
     }
     qCDebug(m_logCategory) << "Command" << command << " - " << state << " for " << entityId;
     openHABCommand(entityId, state);
-    // getItem(entityId);
 }
 
 void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
@@ -844,7 +506,7 @@ void OpenHAB::openHABCommand(const QString& itemId, const QString& state) {
                 jsonError(parseerror.errorString());
                 return;
             }
-            qCDebug(m_logCategory) << "Reply: " << doc.toJson(QJsonDocument::Compact).toStdString().c_str();
+            qCInfo(m_logCategory) << "Reply: " << doc.toJson(QJsonDocument::Compact).toStdString().c_str();
         }
         return;
     });
