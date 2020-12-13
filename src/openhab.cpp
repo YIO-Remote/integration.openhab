@@ -359,6 +359,7 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
 }
 
 void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool isDimmer) {
+    if (entity == nullptr) return;
     if (!(value.contains("ON")) && !(value.contains("OFF")) && isDimmer) {
         // int  brightness = value.toInt();
         // bool on = brightness == 100;
@@ -381,6 +382,7 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
 }
 
 void OpenHAB::processBlind(const QString& value, EntityInterface* entity) {
+    if (entity == nullptr) return;
     QString state = value.toUpper();
     bool    ok = false;
     int     pos = state.toInt(&ok, 10);
@@ -395,6 +397,7 @@ void OpenHAB::processBlind(const QString& value, EntityInterface* entity) {
 }
 
 void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
+    if (entity == nullptr) return;
     QString state = value.toUpper();
     if (state == "ON") {
         entity->setState(SwitchDef::ON);
@@ -404,7 +407,6 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 }
 
 void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity) {
-
     if (entity == nullptr) return;
     if (entity->supported_features().contains("COLOR")) {
         if (regex_colorvalue.exactMatch(value)) {
