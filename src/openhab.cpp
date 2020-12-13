@@ -106,7 +106,6 @@ void OpenHAB::streamReceived() {
         QString          name = map.value("topic").toString().split('/')[2];
         EntityInterface* entity = m_entities->getEntityInterface(name);
         if (entity != nullptr && entity->connected()) {
-
             QString value =
                     (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
             // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
@@ -596,10 +595,12 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
     // QString ohtype = item.value("type").toString();
     QStringList test = entity->supported_features();
     if (entity->connected()) {
-        if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") && regex_brightnessvalue.exactMatch(item.value("state").toString())) {
+        if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
+                regex_brightnessvalue.exactMatch(item.value("state").toString())) {
             processLight(item.value("state").toString(), entity, true);
         }
-        if (entity->type() == "light" && entity->supported_features().contains("COLOR") && regex_colorvalue.exactMatch(item.value("state").toString())) {
+        if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
+                regex_colorvalue.exactMatch(item.value("state").toString())) {
             processComplexLight(item.value("state").toString(), entity);
         }
         if (entity->type() == "light") {
