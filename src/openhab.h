@@ -79,33 +79,9 @@ class OpenHAB : public Integration {
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
  private:
-   /* struct OHPlayer {
-        OHPlayer() : connected(false) {}
-        bool connected;
-    };
-    struct OHPlayerItem {
-        OHPlayerItem() {}
-        OHPlayerItem(const QString& playerId, MediaPlayerDef::Attributes attr) : playerId(playerId), attribute(attr) {}
-        QString                    playerId;  // Entityid of player
-        MediaPlayerDef::Attributes attribute;
-    };
-    struct OHLight {
-        OHLight() : connected(false) {}
-        bool connected;
-    };
-    struct OHLightItem {
-        OHLightItem() {}
-        OHLightItem(const QString& lightId, LightDef::Attributes attr) : lightId(lightId), attribute(attr) {}
-        QString              lightId;
-        LightDef::Attributes attribute;
-    };*/
-
     void startSse();
-
-    // void getThings();
     void getItems(bool first = false);
     void jsonError(const QString& error);
-    // void searchThings(const QJsonDocument& result);
     void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
     void processEntity(const QJsonObject& item, EntityInterface* entity);
@@ -131,11 +107,6 @@ class OpenHAB : public Integration {
     QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
                                        "[0-9]?[0-9]?[0-9]?[0-9]?");
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
-    // QMap<EntityInterface*, bool> _myEntities;
-    /*QMap<QString, OHPlayer>     _ohPlayers;      // YIO player entities
-    QMap<QString, OHPlayerItem> _ohPlayerItems;  // OpenHAB items associated with player
-    QMap<QString, OHLight>      _ohLights;       // YIO complex light entities
-    QMap<QString, OHLightItem>  _ohLightItems;   // OpenHAB items associated with special lights*/
     int                         _tries;
     bool                        _userDisconnect;
     bool                        _wasDisconnected;
