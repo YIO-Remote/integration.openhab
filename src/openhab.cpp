@@ -199,9 +199,7 @@ void OpenHAB::connect() {
         getItems(true);
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
-
     }
-
 }
 
 void OpenHAB::disconnect() {
@@ -228,8 +226,6 @@ void OpenHAB::enterStandby() {
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
     }
-
-
 }
 
 void OpenHAB::leaveStandby() {
