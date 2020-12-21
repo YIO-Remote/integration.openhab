@@ -195,9 +195,8 @@ void OpenHAB::connect() {
     _standby = false;
     if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
         startSse();
-        //_pollingTimer.start();
+        // _pollingTimer.start();
         getItems(true);
-
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
 
@@ -226,10 +225,8 @@ void OpenHAB::enterStandby() {
     }
     if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
         _pollingTimer.start();
-
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
-
     }
 
 
@@ -241,12 +238,9 @@ void OpenHAB::leaveStandby() {
         _pollingTimer.stop();
         startSse();
         getItems(false);
-
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
-
     }
-
 }
 
 void OpenHAB::jsonError(const QString& error) {
@@ -280,7 +274,6 @@ void OpenHAB::getItems(bool first) {
             // called during connect
             setState(CONNECTED);
             // connect to the SSE source
-
         }
         processItems(doc, first);
     });
