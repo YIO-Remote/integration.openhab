@@ -29,6 +29,7 @@
 #include <QSet>
 #include <QString>
 #include <QtDebug>
+#include <QProcess>
 
 #include "openhab_channelmappings.h"
 #include "yio-interface/entities/blindinterface.h"
@@ -186,12 +187,22 @@ void OpenHAB::connect() {
 
     _myEntities = m_entities->getByIntegration(integrationId());
 
-    getItems(true);
+
 
     _tries = 0;
     _userDisconnect = false;
     _wasDisconnected = false;
     _standby = false;
+    if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
+        startSse();
+        //_pollingTimer.start();
+        getItems(true);
+
+    } else {
+        qCDebug(m_logCategory) << "openhab not reachable";
+
+    }
+
 }
 
 void OpenHAB::disconnect() {
@@ -213,15 +224,29 @@ void OpenHAB::enterStandby() {
     if (_sseReply->isRunning()) {
         _sseReply->abort();
     }
-    _pollingTimer.start();
+    if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
+        _pollingTimer.start();
+
+    } else {
+        qCDebug(m_logCategory) << "openhab not reachable";
+
+    }
+
+
 }
 
 void OpenHAB::leaveStandby() {
     _standby = false;
+    if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
+        _pollingTimer.stop();
+        startSse();
+        getItems(false);
 
-    _pollingTimer.stop();
-    startSse();
-    getItems(false);
+    } else {
+        qCDebug(m_logCategory) << "openhab not reachable";
+
+    }
+
 }
 
 void OpenHAB::jsonError(const QString& error) {
@@ -255,7 +280,7 @@ void OpenHAB::getItems(bool first) {
             // called during connect
             setState(CONNECTED);
             // connect to the SSE source
-            startSse();
+
         }
         processItems(doc, first);
     });
