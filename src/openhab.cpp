@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2019 Christian Riedl <ric@rts.co.at>
  * Copyright (C) 2020 Andreas Mroß <andreas@mross.pw>
+ * Copyright (C) 2020 Michael Löcher <MichaelLoercher@web.de>
  *
  * This file is part of the YIO-Remote software project.
  *
@@ -195,11 +196,12 @@ void OpenHAB::connect() {
     _standby = false;
     if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
         startSse();
-        // _pollingTimer.start();
+        _pollingTimer.start();
         getItems(true);
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
     }
+    setState(CONNECTED);
 }
 
 void OpenHAB::disconnect() {
@@ -231,7 +233,7 @@ void OpenHAB::enterStandby() {
 void OpenHAB::leaveStandby() {
     _standby = false;
     if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
-        _pollingTimer.stop();
+        // _pollingTimer.stop();
         startSse();
         getItems(false);
     } else {
