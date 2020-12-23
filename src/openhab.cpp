@@ -198,10 +198,10 @@ void OpenHAB::connect() {
         startSse();
         _pollingTimer.start();
         getItems(true);
+        setState(CONNECTED);
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
     }
-    setState(CONNECTED);
 }
 
 void OpenHAB::disconnect() {
@@ -246,7 +246,12 @@ void OpenHAB::jsonError(const QString& error) {
 }
 
 void OpenHAB::onPollingTimer() {
-    getItems(false);
+    if (QProcess::execute("curl", QStringList() << "-s" << _url) == 0) {
+        getItems(false);
+    } else {
+        qCDebug(m_logCategory) << "openhab not reachable";
+    }
+
 }
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
