@@ -251,7 +251,6 @@ void OpenHAB::onPollingTimer() {
     } else {
         qCDebug(m_logCategory) << "openhab not reachable";
     }
-
 }
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
