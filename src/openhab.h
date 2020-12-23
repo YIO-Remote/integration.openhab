@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2019 Christian Riedl <ric@rts.co.at>
  * Copyright (C) 2020 Andreas Mroß <andreas@mross.pw>
+ * Copyright (C) 2020 Michael Löcher <MichaelLoercher@web.de>
  *
  * This file is part of the YIO-Remote software project.
  *
