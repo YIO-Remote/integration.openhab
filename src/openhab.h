@@ -33,7 +33,7 @@
 #include <QString>
 #include <QTimer>
 #include <QVariant>
-
+#include <QProcess>
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/notificationsinterface.h"
@@ -79,6 +79,7 @@ class OpenHAB : public Integration {
     void onPollingTimer();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
+
  private:
     void startSse();
     void getItems(bool first = false);
@@ -91,7 +92,7 @@ class OpenHAB : public Integration {
     void processBlind(const QString& value, EntityInterface* entity);
     void processSwitch(const QString& value, EntityInterface* entity);
     void processComplexLight(const QString& value, EntityInterface* entity);
-    void openHABCommand(const QString& itemId, const QString& state);
+    void sendOpenHABCommand(const QString& itemId, const QString& state);
     void getItem(const QString name);
 
     const QString* lookupPlayerItem(const QString& entityId, MediaPlayerDef::Attributes attr);
@@ -101,15 +102,17 @@ class OpenHAB : public Integration {
     QNetworkAccessManager       _sseNetworkManager;
     QNetworkReply*              _sseReply;
     QTimer*                     _sseReconnectTimer;
-    QTimer                      _pollingTimer;
+    QTimer*                      _pollingTimer;
     QString                     _url;
+    QString                     _token;
     QNetworkAccessManager       _nam;
     QList<EntityInterface*>     _myEntities;     // Entities of this integration
     QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
                                        "[0-9]?[0-9]?[0-9]?[0-9]?");
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     int                         _tries;
-    bool                        _userDisconnect;
-    bool                        _wasDisconnected;
-    bool                        _standby;
+    bool                        _flagStandby;
+    QProcess                    _checkProcessOpenHabAvailability;
+    bool                        _flagOpenHabConnected = false;
+    QObject* context = new QObject(this);
 };
