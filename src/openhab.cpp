@@ -172,6 +172,11 @@ void OpenHAB::startSse() {
     QNetworkRequest request(_url + "events");
     request.setRawHeader(QByteArray("Accept"), QByteArray("text/event-stream"));
     request.setHeader(QNetworkRequest::UserAgentHeader, "Yio Remote OpenHAB Plugin");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
     request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                          QNetworkRequest::AlwaysNetwork);  // Events shouldn't be cached
@@ -329,6 +334,11 @@ void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility ac
 void OpenHAB::getItems(bool first) {
     QNetworkRequest request(_url + "items");
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
     request.setRawHeader("Accept", "application/json");
     QNetworkReply* reply = _nam.get(request);
     QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
@@ -352,6 +362,11 @@ void OpenHAB::getItems(bool first) {
 void OpenHAB::getItem(const QString name) {
     QNetworkRequest request(_url + "items/" + name);
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
     request.setRawHeader("Accept", "application/json");
     QNetworkReply* reply = _nam.get(request);
     QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
