@@ -602,3 +602,4 @@ void OpenHAB::getSystemInfo(const QJsonDocument& result) {
     });
     _nam.get(request);
 }
+
