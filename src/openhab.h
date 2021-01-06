@@ -76,13 +76,13 @@ class OpenHAB : public Integration {
     void streamFinished(QNetworkReply* reply);
     void streamReceived();
     void onSseTimeout();
-    void onPollingTimer();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
 
  private:
     void startSse();
     void getItems(bool first = false);
+    void getSystemInfo(const QJsonDocument& result);
     void jsonError(const QString& error);
     void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
@@ -102,7 +102,6 @@ class OpenHAB : public Integration {
     QNetworkAccessManager       _sseNetworkManager;
     QNetworkReply*              _sseReply;
     QTimer*                     _sseReconnectTimer;
-    QTimer*                      _pollingTimer;
     QString                     _url;
     QString                     _token;
     QNetworkAccessManager       _nam;
@@ -112,7 +111,6 @@ class OpenHAB : public Integration {
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     int                         _tries;
     bool                        _flagStandby;
-    QProcess                    _checkProcessOpenHabAvailability;
     bool                        _flagOpenHabConnected = false;
     QObject* context = new QObject(this);
 };

@@ -70,7 +70,6 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
     } else if (!_url.endsWith('/')) {
         _url += "/";
     }
-    _pollingTimer = new QTimer(this);
     _sseReconnectTimer = new QTimer(this);
 
 
@@ -192,28 +191,16 @@ void OpenHAB::connect() {
 
     _tries = 0;
     _flagStandby = false;
-    QObject::connect(&_checkProcessOpenHabAvailability,
-                     static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
-                     [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitCode == 0 && exitStatus == QProcess::ExitStatus::NormalExit) {
-            _sseReconnectTimer->setSingleShot(true);
-            _sseReconnectTimer->setInterval(2000);
-            _sseReconnectTimer->stop();
-            _pollingTimer->setSingleShot(false);
-            _pollingTimer->setInterval(1000 * 60);  // 1 minute
-
-            QObject::connect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
-            QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
-
-            QObject::connect(_pollingTimer, &QTimer::timeout, this, &OpenHAB::onPollingTimer);
-            QObject::connect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, this,
-                             &OpenHAB::onNetWorkAccessible);
-            startSse();
-            getItems(true);
-            setState(CONNECTED);
-            QObject::disconnect(&_checkProcessOpenHabAvailability,
-                                static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), 0, 0);
-        } else {
+    QNetworkRequest request(_url + "/systeminfo");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
+    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
+        if (reply->error()) {
+            qCCritical(m_logCategory) << reply->errorString();
             m_notifications->add(
                         true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
                         [](QObject* param) {
@@ -224,9 +211,29 @@ void OpenHAB::connect() {
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
+        } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
+            qCDebug(m_logCategory) << reply;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
+            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+
+
+            _sseReconnectTimer->setSingleShot(true);
+            _sseReconnectTimer->setInterval(2000);
+            _sseReconnectTimer->stop();
+
+            QObject::connect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
+            QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
+
+            startSse();
+            getItems(true);
+            setState(CONNECTED);
         }
+        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
     });
-    _checkProcessOpenHabAvailability.start("curl", QStringList() << "-s" << _url);
+    _nam.get(request);
 }
 
 void OpenHAB::disconnect() {
@@ -234,53 +241,33 @@ void OpenHAB::disconnect() {
             _sseReply->abort();
 
     }*/
-    _pollingTimer->stop();
     _sseReconnectTimer->stop();
     QObject::disconnect(&_sseNetworkManager, &QNetworkAccessManager::finished, 0, 0);
     QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, 0, 0);
-    QObject::disconnect(_pollingTimer, &QTimer::timeout, 0, 0);
     QObject::disconnect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, 0, 0);
     setState(DISCONNECTED);
 }
 
 void OpenHAB::enterStandby() {
     _flagStandby = true;
-
-    QObject::connect(&_checkProcessOpenHabAvailability,
-                     static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
-                     [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitCode == 0 && exitStatus == QProcess::ExitStatus::NormalExit) {
-            _pollingTimer->start();
-            if (_sseReply->isRunning()) {
-                _sseReply->abort();
-            }
-        }  else {
-            m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        }
-        QObject::disconnect(&_checkProcessOpenHabAvailability,
-                            static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), 0, 0);
-    });
-    _checkProcessOpenHabAvailability.start("curl", QStringList() << "-s" << _url);
+    if (_sseReply->isRunning()) {
+        _sseReply->abort();
+    }
 }
 
 void OpenHAB::leaveStandby() {
     _flagStandby = false;
-    QObject::connect(&_checkProcessOpenHabAvailability,
-                     static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
-                     [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitCode == 0 && exitStatus == QProcess::ExitStatus::NormalExit) {
-            startSse();
-            getItems(false);
-        }  else {
+
+    QNetworkRequest request(_url + "/systeminfo");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
+    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
+        if (reply->error()) {
+            qCCritical(m_logCategory) << reply->errorString();
             m_notifications->add(
                         true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
                         [](QObject* param) {
@@ -291,40 +278,20 @@ void OpenHAB::leaveStandby() {
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
+        } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
+            _flagOpenHabConnected = true;
+            startSse();
+            getItems(false);
         }
-        QObject::disconnect(&_checkProcessOpenHabAvailability,
-                            static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), 0, 0);
+        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
     });
-    _checkProcessOpenHabAvailability.start("curl", QStringList() << "-s" << _url);
+    _nam.get(request);
 }
 
 void OpenHAB::jsonError(const QString& error) {
     qCWarning(m_logCategory) << "JSON error " << error;
 }
 
-void OpenHAB::onPollingTimer() {
-    QObject::connect(&_checkProcessOpenHabAvailability,
-                     static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished),
-                     [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitCode == 0 && exitStatus == QProcess::ExitStatus::NormalExit) {
-            getItems(false);
-        }  else {
-            m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        }
-        QObject::disconnect(&_checkProcessOpenHabAvailability,
-                            static_cast<void(QProcess::*)(int, QProcess::ExitStatus)>(&QProcess::finished), 0, 0);
-    });
-    _checkProcessOpenHabAvailability.start("curl", QStringList() << "-s" << _url);
-}
 
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
@@ -349,11 +316,6 @@ void OpenHAB::getItems(bool first) {
             qCDebug(m_logCategory) << answer << _url + "items";
             jsonError(parseerror.errorString());
             return;
-        }
-        if (first) {
-            // called during connect
-            // setState(CONNECTED);
-            // connect to the SSE source
         }
         processItems(doc, first);
     });
@@ -413,8 +375,13 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
             }
         }
         if ((_myEntities.count() - countFound) > 0) {
-            m_notifications->add(true,
-                                 "openHAB - entities missing : " + QString::number((_myEntities.count() - countFound)));
+            m_notifications->add(
+                        true, "Could not load : " + QString::number((_myEntities.count() - countFound))
+                        + "openHAB items", tr("Reconnect"), [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            this);
         }
     } else {
         for (int i = 0; i < _myEntities.size(); ++i) {
@@ -596,13 +563,6 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
         QString token = "Bearer " +_token;
         request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
     }
-    /*QList<QByteArray> reqHeaders = request.rawHeaderList();
-    foreach(QByteArray reqName, reqHeaders) {
-        QByteArray reqValue = request.rawHeader(reqName);
-        qCDebug(m_logCategory) << reqName << ": " << reqValue;
-    }
-    qCDebug(m_logCategory) << request.rawHeaderList();
-    */
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->error()) {
             qCCritical(m_logCategory) << reply->errorString();
@@ -615,4 +575,30 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
         }
     });
     _nam.post(request, state.toUtf8());
+}
+
+
+void OpenHAB::getSystemInfo(const QJsonDocument& result) {
+    QNetworkRequest request(_url + "/systeminfo");
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
+    if (_token != "") {
+        request.setRawHeader("accept", "*/*");
+        QString token = "Bearer " +_token;
+        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+    }
+    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
+        if (reply->error()) {
+            qCCritical(m_logCategory) << reply->errorString();
+        } else {
+            qCDebug(m_logCategory) << reply;
+            QString answer = reply->readAll();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
+            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+        }
+        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
+    });
+    _nam.get(request);
 }
