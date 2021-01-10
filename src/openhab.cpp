@@ -169,12 +169,12 @@ void OpenHAB::onSseTimeout() {
 
 void OpenHAB::startSse() {
     QNetworkRequest request(_url + "events");
-    request.setRawHeader(QByteArray("Accept"), QByteArray("text/event-stream"));
+    request.setRawHeader("Accept", "text/event-stream");
     request.setHeader(QNetworkRequest::UserAgentHeader, "Yio Remote OpenHAB Plugin");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
@@ -196,7 +196,7 @@ void OpenHAB::connect() {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->error()) {
@@ -212,13 +212,8 @@ void OpenHAB::connect() {
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
         } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
-            qCDebug(m_logCategory) << reply;
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
-
+            QString answer = reply->readAll();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
 
             _sseReconnectTimer->setSingleShot(true);
             _sseReconnectTimer->setInterval(2000);
@@ -263,7 +258,7 @@ void OpenHAB::leaveStandby() {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->error()) {
@@ -304,7 +299,7 @@ void OpenHAB::getItems(bool first) {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
     QNetworkReply* reply = _nam.get(request);
@@ -327,7 +322,7 @@ void OpenHAB::getItem(const QString name) {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
     QNetworkReply* reply = _nam.get(request);
@@ -377,11 +372,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         if ((_myEntities.count() - countFound) > 0) {
             m_notifications->add(
                         true, "Could not load : " + QString::number((_myEntities.count() - countFound))
-                        + "openHAB items", tr("Reconnect"), [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
+                        + "openHAB items");
         }
     } else {
         for (int i = 0; i < _myEntities.size(); ++i) {
@@ -561,17 +552,14 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->error()) {
             qCCritical(m_logCategory) << reply->errorString();
         } else {
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+            QString answer = reply->readAll();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
         }
     });
     _nam.post(request, state.toUtf8());
@@ -584,19 +572,14 @@ void OpenHAB::getSystemInfo(const QJsonDocument& result) {
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
         QString token = "Bearer " +_token;
-        request.setRawHeader(QByteArray("Authorization"), token.toUtf8());
+        request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->error()) {
             qCCritical(m_logCategory) << reply->errorString();
         } else {
-            qCDebug(m_logCategory) << reply;
             QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::LastModifiedHeader).toDateTime().toString();;
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentLengthHeader).toULongLong();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-            qCDebug(m_logCategory) << reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute).toString();
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
         }
         QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
     });
