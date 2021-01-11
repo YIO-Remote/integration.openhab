@@ -67,7 +67,7 @@ class OpenHAB : public Integration {
 
     void sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) override;
 
- private slots:  // NOLINT open issue: https://github.com/cpplint/cpplint/pull/99
+ private slots:
     void connect() override;
     void disconnect() override;
     void leaveStandby() override;
