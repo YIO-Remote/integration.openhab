@@ -29,7 +29,6 @@
 #include <QJsonDocument>
 #include <QString>
 
-
 #include "openhab_channelmappings.h"
 #include "yio-interface/entities/blindinterface.h"
 #include "yio-interface/entities/entityinterface.h"
@@ -81,24 +80,22 @@ void OpenHAB::streamReceived() {
             continue;
         }
 
-
-        //data = data.replace("\"{", "{").replace("}\"", "}").replace("\\\"", "\"");
-        //data = data.noquote();
+        // data = data.replace("\"{", "{").replace("}\"", "}").replace("\\\"", "\"");
+        // data = data.noquote();
         data = data.replace("\\\"", "\"");
-        data= data.replace("}\"", "}");
-        data= data.replace("\"{", "{");
-        //data = data.replace("\"\"", "\"");
+        data = data.replace("}\"", "}");
+        data = data.replace("\"{", "{");
+        // data = data.replace("\"\"", "\"");
 
-        //data = data.replace("[\"", "[\\\"");
+        // data = data.replace("[\"", "[\\\"");
         data = data.replace("\\", "");
         data = data.replace("\"[", "[");
         data = data.replace("]\"", "]");
 
-
         QJsonParseError parseerror;
         // remove the message start passage, because it is no valid JSON
         QJsonDocument doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
-        //QJsonDocument doc = QJsonDocument::fromJson(DataAsString.u mid(6), &parseerror);
+        // QJsonDocument doc = QJsonDocument::fromJson(DataAsString.u mid(6), &parseerror);
         if (parseerror.error != QJsonParseError::NoError) {
             qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact));
             qCDebug(m_logCategory) << "read " << rawData.size() << "bytes";
@@ -106,7 +103,7 @@ void OpenHAB::streamReceived() {
             qCCritical(m_logCategory) << "SSE JSON error:" << parseerror.errorString();
             continue;
         }
-        //qCDebug(m_logCategory) << "res" <<data.mid(6);
+        // qCDebug(m_logCategory) << "res" <<data.mid(6);
         // QVariantMap map = doc.toVariant().toMap();
         // only process state changes
         if ((doc.object().value("type").toString() == "ItemStateEvent") ||
@@ -578,12 +575,12 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
         request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
-
         if (reply->error()) {
             qCCritical(m_logCategory) << reply->errorString();
         } else {
             QString answer = reply->readAll();
-            //qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
+            // qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " <<
+            // answer;
         }
     });
     _nam.post(request, state.toUtf8());
