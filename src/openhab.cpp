@@ -27,10 +27,8 @@
 #include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QProcess>
-#include <QSet>
 #include <QString>
-#include <QtDebug>
+
 
 #include "openhab_channelmappings.h"
 #include "yio-interface/entities/blindinterface.h"

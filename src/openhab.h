@@ -25,15 +25,14 @@
 #pragma once
 
 #include <QColor>
-#include <QJsonObject>
-#include <QLoggingCategory>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QObject>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QString>
+#include <QNetworkAccessManager>
 #include <QTimer>
-#include <QVariant>
-#include <QProcess>
+#include <QNetworkReply>
+#include <QJsonObject>
+
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/notificationsinterface.h"
