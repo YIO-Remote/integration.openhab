@@ -27,10 +27,10 @@
 #include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QProcess>
 #include <QSet>
 #include <QString>
 #include <QtDebug>
-#include <QProcess>
 
 #include "openhab_channelmappings.h"
 #include "yio-interface/entities/blindinterface.h"
@@ -52,7 +52,6 @@ Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, Entitie
 OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
                  YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin)
     : Integration(config, entities, notifications, api, configObj, plugin), _sseNetworkManager(), _nam(this) {
-
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "url") {
             _url = iter.value().toString();
@@ -71,8 +70,6 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
         _url += "/";
     }
     _sseReconnectTimer = new QTimer(this);
-
-
 
     qCDebug(m_logCategory) << "setup";
 }
@@ -98,22 +95,20 @@ void OpenHAB::streamReceived() {
             continue;
         }
 
-
-        QVariantMap map = doc.toVariant().toMap();
+        // QVariantMap map = doc.toVariant().toMap();
         // only process state changes
-        if ((map.value("type").toString() == "ItemStateEvent") ||
-                (map.value("type").toString() == "GroupItemStateChangedEvent")) {
+        if ((doc.object().value("type").toString() == "ItemStateEvent") ||
+            (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
             // get item name from the topic string
             // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
-            QString          name = map.value("topic").toString().split('/')[2];
+            QString          name = doc.object().value("topic").toString().split('/')[2];
             EntityInterface* entity = m_entities->getEntityInterface(name);
             if (entity != nullptr && entity->connected()) {
-                QString value =
-                        (reinterpret_cast<const QVariantMap*>(map.value("payload").data()))->value("value").toString();
+                QString value = doc.object().value("payload")["value"].toString();
                 // because OpenHab doesn't send the item type in the status update, we have to extract it from our own
                 // entity library
                 if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-                        regex_brightnessvalue.exactMatch(value)) {
+                    regex_brightnessvalue.exactMatch(value)) {
                     processLight(value, entity, true);
                 } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
                            regex_colorvalue.exactMatch(value)) {
@@ -151,12 +146,12 @@ void OpenHAB::onSseTimeout() {
         QObject* param = this;
 
         m_notifications->add(
-                    true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                    [](QObject* param) {
-            Integration* i = qobject_cast<Integration*>(param);
-            i->connect();
-        },
-        param);
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            param);
 
         _tries = 0;
     } else {
@@ -173,7 +168,7 @@ void OpenHAB::startSse() {
     request.setHeader(QNetworkRequest::UserAgentHeader, "Yio Remote OpenHAB Plugin");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
@@ -195,24 +190,24 @@ void OpenHAB::connect() {
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
             m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
         } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
             QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
 
             _sseReconnectTimer->setSingleShot(true);
             _sseReconnectTimer->setInterval(2000);
@@ -226,12 +221,12 @@ void OpenHAB::connect() {
             setState(CONNECTED);
         } else {
             m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
@@ -267,18 +262,18 @@ void OpenHAB::leaveStandby() {
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
         if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
             m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
@@ -286,14 +281,14 @@ void OpenHAB::leaveStandby() {
             _flagOpenHabConnected = true;
             startSse();
             getItems(false);
-        }  else {
+        } else {
             m_notifications->add(
-                        true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                        [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
             _flagOpenHabConnected = false;
             disconnect();
             qCDebug(m_logCategory) << "openhab not reachable";
@@ -307,18 +302,16 @@ void OpenHAB::jsonError(const QString& error) {
     qCWarning(m_logCategory) << "JSON error " << error;
 }
 
-
 void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility) {
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
 }
-
 
 void OpenHAB::getItems(bool first) {
     QNetworkRequest request(_url + "items");
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
@@ -341,7 +334,7 @@ void OpenHAB::getItem(const QString name) {
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
@@ -391,8 +384,7 @@ void OpenHAB::processItems(const QJsonDocument& result, bool first) {
         }
         if ((_myEntities.count() - countFound) > 0) {
             m_notifications->add(
-                        true, "Could not load : " + QString::number((_myEntities.count() - countFound))
-                        + "openHAB items");
+                true, "Could not load : " + QString::number((_myEntities.count() - countFound)) + "openHAB items");
         }
     } else {
         for (int i = 0; i < _myEntities.size(); ++i) {
@@ -416,11 +408,11 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
 
     if (entity->connected()) {
         if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-                regex_brightnessvalue.exactMatch(item.value("state").toString())) {
+            regex_brightnessvalue.exactMatch(item.value("state").toString())) {
             processLight(item.value("state").toString(), entity, true);
         }
         if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
-                regex_colorvalue.exactMatch(item.value("state").toString())) {
+            regex_colorvalue.exactMatch(item.value("state").toString())) {
             processComplexLight(item.value("state").toString(), entity);
         }
         if (entity->type() == "light") {
@@ -454,7 +446,7 @@ void OpenHAB::processLight(const QString& value, EntityInterface* entity, bool i
             entity->setState(LightDef::OFF);
         } else {
             qCDebug(m_logCategory)
-                    << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(value.toUpper());
+                << QString("OpenHab Switch %1 undefined state %2").arg(entity->entity_id()).arg(value.toUpper());
         }
     }
 }
@@ -490,7 +482,7 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
         if (regex_colorvalue.exactMatch(value)) {
             QStringList cs = value.split(',');
             QColor      color =
-                    QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
+                QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
             // QColor color = QColor::fromHsv(34,45,45);
@@ -520,7 +512,6 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
     }
 }
 
-
 void OpenHAB::sendCommand(const QString& type, const QString& entityId, int command, const QVariant& param) {
     QString      state;
     QColor       color;
@@ -529,35 +520,35 @@ void OpenHAB::sendCommand(const QString& type, const QString& entityId, int comm
 
     if (type == "light") {
         switch (static_cast<LightDef::Commands>(command)) {
-        case LightDef::C_OFF:
-            state = "OFF";
-            break;
-        case LightDef::C_ON:
-            state = "ON";
-            break;
-        case LightDef::C_BRIGHTNESS:
-            state = QString::number(param.toInt());
-            break;
-        case LightDef::C_COLOR:
-            color = QColor(param.toString());
-            state = QString::number(color.hue()) + ',' + QString::number(color.saturationF() * 100) + ',' +
-                    QString::number(color.lightnessF() * 100);
-            break;
-        default:
-            qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
-            return;
+            case LightDef::C_OFF:
+                state = "OFF";
+                break;
+            case LightDef::C_ON:
+                state = "ON";
+                break;
+            case LightDef::C_BRIGHTNESS:
+                state = QString::number(param.toInt());
+                break;
+            case LightDef::C_COLOR:
+                color = QColor(param.toString());
+                state = QString::number(color.hue()) + ',' + QString::number(color.saturationF() * 100) + ',' +
+                        QString::number(color.lightnessF() * 100);
+                break;
+            default:
+                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+                return;
         }
     } else if (type == "switch") {
         switch (static_cast<SwitchDef::Commands>(command)) {
-        case SwitchDef::C_OFF:
-            state = "OFF";
-            break;
-        case SwitchDef::C_ON:
-            state = "ON";
-            break;
-        default:
-            qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
-            return;
+            case SwitchDef::C_OFF:
+                state = "OFF";
+                break;
+            case SwitchDef::C_ON:
+                state = "ON";
+                break;
+            default:
+                qCInfo(m_logCategory) << "Light command" << command << " not supported for " << entityId;
+                return;
         }
     } else {
         qCInfo(m_logCategory) << "Command" << command << " not supported for " << entityId;
@@ -571,7 +562,7 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
@@ -579,19 +570,18 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
             qCCritical(m_logCategory) << reply->errorString();
         } else {
             QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
         }
     });
     _nam.post(request, state.toUtf8());
 }
-
 
 void OpenHAB::getSystemInfo(const QJsonDocument& result) {
     QNetworkRequest request(_url + "/systeminfo");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
         request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " +_token;
+        QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
     QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
@@ -599,10 +589,9 @@ void OpenHAB::getSystemInfo(const QJsonDocument& result) {
             qCCritical(m_logCategory) << reply->errorString();
         } else {
             QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() <<" : " << answer;
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
         }
         QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
     });
     _nam.get(request);
 }
-
