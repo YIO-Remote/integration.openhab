@@ -209,16 +209,16 @@ void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
             _flagOpenHabConnected = true;
             startSse();
             _firstrun = true;
-            getItems(_firstrun);
+            getItems();
 
             setState(CONNECTED);
 
         } else if (state() == CONNECTED && _flagleaveStandby) {
             _flagOpenHabConnected = true;
             _flagleaveStandby = false;
-            getItems(_firstrun);
+            getItems();
             startSse();
-        } else if (state() == CONNECTED) {
+        } else if (state() == CONNECTED && answer.contains("rest/items/")) {
             QJsonParseError parseerror;
             if (answer != "") {
                 QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
@@ -231,10 +231,11 @@ void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
 
                 _flagOpenHabConnected = true;
                 setState(CONNECTED);
-            } else {
+            }
+        } else if (state() == CONNECTED) {
                 _flagOpenHabConnected = true;
                 setState(CONNECTED);
-            }
+
         }
     } else {
         m_notifications->add(
@@ -306,7 +307,7 @@ void OpenHAB::onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility ac
     qCInfo(m_logCategory) << "network accessibility" << accessibility;
 }
 
-void OpenHAB::getItems(bool first) {
+void OpenHAB::getItems() {
     QNetworkRequest request(_url + "items");
     request.setHeader(QNetworkRequest::KnownHeaders::ContentTypeHeader, "application/json");
     if (_token != "") {
@@ -315,18 +316,7 @@ void OpenHAB::getItems(bool first) {
         request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
-    QNetworkReply* reply = _nam.get(request);
-    QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
-        QString         answer = reply->readAll();
-        QJsonParseError parseerror;
-        QJsonDocument   doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
-        if (parseerror.error != QJsonParseError::NoError) {
-            qCDebug(m_logCategory) << answer << _url + "items";
-            jsonError(parseerror.errorString());
-            return;
-        }
-        processItems(doc, first);
-    });
+    _nam.get(request);
 }
 
 void OpenHAB::getItem(const QString name) {
@@ -338,18 +328,8 @@ void OpenHAB::getItem(const QString name) {
         request.setRawHeader("Authorization", token.toUtf8());
     }
     request.setRawHeader("Accept", "application/json");
-    QNetworkReply* reply = _nam.get(request);
-    QObject::connect(reply, &QNetworkReply::finished, this, [=]() {
-        QString         answer = reply->readAll();
-        QJsonParseError parseerror;
+    _nam.get(request);
 
-        QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
-        if (parseerror.error != QJsonParseError::NoError) {
-            jsonError(parseerror.errorString());
-            return;
-        }
-        processItem(doc);
-    });
 }
 void OpenHAB::processItem(const QJsonDocument& result) {
     QJsonObject json = result.object();
@@ -363,18 +343,26 @@ void OpenHAB::processItem(const QJsonDocument& result) {
 }
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int countFound = 0, countAll = 0;
-
+qCDebug(m_logCategory) << "1";
     QJsonArray array = result.array();
+
+    qCDebug(m_logCategory) << array.size();
+
     if (first) {
         for (int i = 0; i < _myEntities.size(); ++i) {
             _myEntities[i]->setConnected(false);
+            qCDebug(m_logCategory) << "2";
         }
         for (int i = 0; i < _myEntities.size(); ++i) {
+            qCDebug(m_logCategory) << "3";
+
             for (QJsonArray::iterator j = array.begin(); j != array.end(); ++j) {
+                qCDebug(m_logCategory) << "4";
                 QJsonObject item = j->toObject();
                 QString     name = item.value("name").toString();
                 countAll++;
                 if (name == _myEntities[i]->entity_id()) {
+                    qCDebug(m_logCategory) << "5";
                     countFound++;
                     _myEntities[i]->setConnected(true);
                     qCDebug(m_logCategory) << _myEntities[i]->entity_id() + "connected:" + _myEntities[i]->connected();

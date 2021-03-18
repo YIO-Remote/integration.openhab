@@ -81,7 +81,7 @@ class OpenHAB : public Integration {
 
  private:
     void startSse();
-    void getItems(bool first = false);
+    void getItems();
     void getSystemInfo(const QJsonDocument& result);
     void jsonError(const QString& error);
     void processItem(const QJsonDocument& result);
@@ -113,6 +113,7 @@ class OpenHAB : public Integration {
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     int                         _tries;
     bool                        _flagStandby;
+    bool                        _flagprocessitems = false;
     bool                        _flagOpenHabConnected = false;
     QObject* context = new QObject(this);
 };
