@@ -230,12 +230,9 @@ void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
                 _firstrun = false;
 
                 _flagOpenHabConnected = true;
-                setState(CONNECTED);
             }
         } else if (state() == CONNECTED) {
-                _flagOpenHabConnected = true;
-                setState(CONNECTED);
-
+            _flagOpenHabConnected = true;
         }
     } else {
         m_notifications->add(
@@ -329,7 +326,6 @@ void OpenHAB::getItem(const QString name) {
     }
     request.setRawHeader("Accept", "application/json");
     _nam.get(request);
-
 }
 void OpenHAB::processItem(const QJsonDocument& result) {
     QJsonObject json = result.object();
@@ -343,7 +339,7 @@ void OpenHAB::processItem(const QJsonDocument& result) {
 }
 void OpenHAB::processItems(const QJsonDocument& result, bool first) {
     int countFound = 0, countAll = 0;
-qCDebug(m_logCategory) << "1";
+    qCDebug(m_logCategory) << "1";
     QJsonArray array = result.array();
 
     qCDebug(m_logCategory) << array.size();
