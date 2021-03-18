@@ -73,6 +73,7 @@ class OpenHAB : public Integration {
     void enterStandby() override;
 
     void streamFinished(QNetworkReply* reply);
+    void networkmanagerfinished(QNetworkReply* reply);
     void streamReceived();
     void onSseTimeout();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
@@ -104,6 +105,8 @@ class OpenHAB : public Integration {
     QString                     _url;
     QString                     _token;
     QNetworkAccessManager       _nam;
+    bool       _firstrun = false;
+    bool _flagleaveStandby = false;
     QList<EntityInterface*>     _myEntities;     // Entities of this integration
     QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
                                        "[0-9]?[0-9]?[0-9]?[0-9]?");

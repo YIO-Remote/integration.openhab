@@ -72,22 +72,18 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
 }
 
 void OpenHAB::streamReceived() {
-    QByteArray     rawData = _sseReply->readAll();
+    QByteArray rawData = _sseReply->readAll();
+
+    // QByteArrayList splitted = answer.toUtf8().split('\n');
     QByteArrayList splitted = rawData.split('\n');
 
     for (QByteArray data : splitted) {
         if ((data.length() == 0) || (data.startsWith("event: message"))) {
             continue;
         }
-
-        // data = data.replace("\"{", "{").replace("}\"", "}").replace("\\\"", "\"");
-        // data = data.noquote();
         data = data.replace("\\\"", "\"");
         data = data.replace("}\"", "}");
         data = data.replace("\"{", "{");
-        // data = data.replace("\"\"", "\"");
-
-        // data = data.replace("[\"", "[\\\"");
         data = data.replace("\\", "");
         data = data.replace("\"[", "[");
         data = data.replace("]\"", "]");
@@ -98,7 +94,7 @@ void OpenHAB::streamReceived() {
         // QJsonDocument doc = QJsonDocument::fromJson(DataAsString.u mid(6), &parseerror);
         if (parseerror.error != QJsonParseError::NoError) {
             qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact));
-            qCDebug(m_logCategory) << "read " << rawData.size() << "bytes";
+            qCDebug(m_logCategory) << "read " << data.size() << "bytes";
             qCDebug(m_logCategory) << "read " << data.mid(6);
             qCCritical(m_logCategory) << "SSE JSON error:" << parseerror.errorString();
             continue;
@@ -187,7 +183,74 @@ void OpenHAB::startSse() {
     _sseReply = _sseNetworkManager.get(request);
     QObject::connect(_sseReply, &QNetworkReply::readyRead, this, &OpenHAB::streamReceived);
 }
+void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
+    QString answer = reply->readAll();
+    if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
+        m_notifications->add(
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            this);
+        _flagOpenHabConnected = false;
+        disconnect();
+        qCDebug(m_logCategory) << "openhab not reachable";
+    } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
+        if (state() != CONNECTED) {
+            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
 
+            _sseReconnectTimer->setSingleShot(true);
+            _sseReconnectTimer->setInterval(2000);
+            _sseReconnectTimer->stop();
+
+            QObject::connect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
+            QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
+            _flagOpenHabConnected = true;
+            startSse();
+            _firstrun = true;
+            getItems(_firstrun);
+
+            setState(CONNECTED);
+
+        } else if (state() == CONNECTED && _flagleaveStandby) {
+            _flagOpenHabConnected = true;
+            _flagleaveStandby = false;
+            getItems(_firstrun);
+            startSse();
+        } else if (state() == CONNECTED) {
+            QJsonParseError parseerror;
+            if (answer != "") {
+                QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+                if (parseerror.error != QJsonParseError::NoError) {
+                    jsonError(parseerror.errorString());
+                    return;
+                }
+                processItems(doc, _firstrun);
+                _firstrun = false;
+
+                _flagOpenHabConnected = true;
+                // startSse();
+                // getItems(false);
+                setState(CONNECTED);
+            } else {
+                _flagOpenHabConnected = true;
+                setState(CONNECTED);
+            }
+        }
+    } else {
+        m_notifications->add(
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            this);
+        _flagOpenHabConnected = false;
+        disconnect();
+        qCDebug(m_logCategory) << "openhab not reachable";
+    }
+}
 void OpenHAB::connect() {
     setState(CONNECTING);
 
@@ -202,58 +265,18 @@ void OpenHAB::connect() {
         QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
-    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
-        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
-            m_notifications->add(
-                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                [](QObject* param) {
-                    Integration* i = qobject_cast<Integration*>(param);
-                    i->connect();
-                },
-                this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
-            QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
-
-            _sseReconnectTimer->setSingleShot(true);
-            _sseReconnectTimer->setInterval(2000);
-            _sseReconnectTimer->stop();
-
-            QObject::connect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
-            QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
-
-            startSse();
-            getItems(true);
-            setState(CONNECTED);
-        } else {
-            m_notifications->add(
-                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                [](QObject* param) {
-                    Integration* i = qobject_cast<Integration*>(param);
-                    i->connect();
-                },
-                this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        }
-        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
-    });
+    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkmanagerfinished);
     _nam.get(request);
 }
 
 void OpenHAB::disconnect() {
-    /* if (_sseReply->isRunning()) {
-            _sseReply->abort();
-
-    }*/
+    if (_sseReply->isRunning()) {
+        _sseReply->abort();
+    }
     _sseReconnectTimer->stop();
-    QObject::disconnect(&_sseNetworkManager, &QNetworkAccessManager::finished, 0, 0);
-    QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, 0, 0);
-    QObject::disconnect(&_nam, &QNetworkAccessManager::networkAccessibleChanged, 0, 0);
+    QObject::disconnect(&_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
+    QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
+    QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkmanagerfinished);
     setState(DISCONNECTED);
 }
 
@@ -266,7 +289,7 @@ void OpenHAB::enterStandby() {
 
 void OpenHAB::leaveStandby() {
     _flagStandby = false;
-
+    _flagleaveStandby = true;
     QNetworkRequest request(_url + "/systeminfo");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
@@ -274,36 +297,6 @@ void OpenHAB::leaveStandby() {
         QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
-    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
-        if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
-            m_notifications->add(
-                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                [](QObject* param) {
-                    Integration* i = qobject_cast<Integration*>(param);
-                    i->connect();
-                },
-                this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
-            _flagOpenHabConnected = true;
-            startSse();
-            getItems(false);
-        } else {
-            m_notifications->add(
-                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                [](QObject* param) {
-                    Integration* i = qobject_cast<Integration*>(param);
-                    i->connect();
-                },
-                this);
-            _flagOpenHabConnected = false;
-            disconnect();
-            qCDebug(m_logCategory) << "openhab not reachable";
-        }
-        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
-    });
     _nam.get(request);
 }
 
@@ -574,15 +567,7 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
         QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
-    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
-        if (reply->error()) {
-            qCCritical(m_logCategory) << reply->errorString();
-        } else {
-            QString answer = reply->readAll();
-            // qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " <<
-            // answer;
-        }
-    });
+
     _nam.post(request, state.toUtf8());
 }
 
@@ -594,14 +579,5 @@ void OpenHAB::getSystemInfo(const QJsonDocument& result) {
         QString token = "Bearer " + _token;
         request.setRawHeader("Authorization", token.toUtf8());
     }
-    QObject::connect(&_nam, &QNetworkAccessManager::finished, this, [=](QNetworkReply* reply) {
-        if (reply->error()) {
-            qCCritical(m_logCategory) << reply->errorString();
-        } else {
-            QString answer = reply->readAll();
-            qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
-        }
-        QObject::disconnect(&_nam, &QNetworkAccessManager::finished, this, 0);
-    });
     _nam.get(request);
 }
