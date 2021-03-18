@@ -230,8 +230,6 @@ void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
                 _firstrun = false;
 
                 _flagOpenHabConnected = true;
-                // startSse();
-                // getItems(false);
                 setState(CONNECTED);
             } else {
                 _flagOpenHabConnected = true;
