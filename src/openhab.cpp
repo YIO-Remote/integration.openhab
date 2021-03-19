@@ -180,6 +180,7 @@ void OpenHAB::startSse() {
     _sseReply = _sseNetworkManager->get(request);
     QObject::connect(_sseReply, &QNetworkReply::readyRead, this, &OpenHAB::streamReceived);
 }
+
 void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
     QString answer = reply->readAll();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
