@@ -27,11 +27,12 @@
 #include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QString>
-#include <QNetworkAccessManager>
-#include <QTimer>
-#include <QNetworkReply>
 #include <QJsonObject>
+#include <QNetworkAccessManager>
+#include <QNetworkConfigurationManager>
+#include <QNetworkReply>
+#include <QString>
+#include <QTimer>
 
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
@@ -78,7 +79,6 @@ class OpenHAB : public Integration {
     void onSseTimeout();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
-
  private:
     void startSse();
     void getItems();
@@ -99,21 +99,24 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkAccessManager       _sseNetworkManager;
-    QNetworkReply*              _sseReply;
-    QTimer*                     _sseReconnectTimer;
-    QString                     _url;
-    QString                     _token;
-    QNetworkAccessManager       _nam;
-    bool       _firstrun = false;
-    bool _flagleaveStandby = false;
-    QList<EntityInterface*>     _myEntities;     // Entities of this integration
-    QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
-                                       "[0-9]?[0-9]?[0-9]?[0-9]?");
-    QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
-    int                         _tries;
-    bool                        _flagStandby;
-    bool                        _flagprocessitems = false;
-    bool                        _flagOpenHabConnected = false;
+    QNetworkAccessManager*        _sseNetworkManager;
+    QNetworkReply*                _sseReply;
+    QTimer*                       _sseReconnectTimer;
+    QString                       _url;
+    QString                       _token;
+    int                           _networktries = 0;
+    QNetworkAccessManager*        _nam;
+    QNetworkConfigurationManager* manager = new QNetworkConfigurationManager(this);
+    bool                          _firstrun = false;
+    bool                          _flagleaveStandby = false;
+    QList<EntityInterface*>       _myEntities;  // Entities of this integration
+    QRegExp                       regex_colorvalue = QRegExp(
+        "[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
+        "[0-9]?[0-9]?[0-9]?[0-9]?");
+    QRegExp  regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
+    int      _tries;
+    bool     _flagStandby;
+    bool     _flagprocessitems = false;
+    bool     _flagOpenHabConnected = false;
     QObject* context = new QObject(this);
 };
