@@ -247,19 +247,21 @@ void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
 }
 void OpenHAB::connect() {
     setState(CONNECTING);
-    if (!manager->isOnline()) {
-        if (_networktries == 20) {
-            m_notifications->add(
-                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-                [](QObject* param) {
-                    Integration* i = qobject_cast<Integration*>(param);
-                    i->connect();
-                },
-                this);
-        } else {
-            _networktries++;
-            this->connect();
+    do {
+        _tries++;
+        if (_tries == 20) {
+            break;
         }
+    } while (!manager->isOnline());
+
+    if (!manager->isOnline()) {
+        m_notifications->add(
+            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+            [](QObject* param) {
+                Integration* i = qobject_cast<Integration*>(param);
+                i->connect();
+            },
+            this);
     } else {
         _sseReconnectTimer = new QTimer(this);
         _nam = new QNetworkAccessManager(this);
