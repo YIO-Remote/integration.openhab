@@ -30,6 +30,7 @@
 #include <QJsonObject>
 #include <QNetworkAccessManager>
 #include <QNetworkConfigurationManager>
+#include <QNetworkInterface>
 #include <QNetworkReply>
 #include <QString>
 #include <QTimer>
@@ -74,7 +75,7 @@ class OpenHAB : public Integration {
     void enterStandby() override;
 
     void streamFinished(QNetworkReply* reply);
-    void networkmanagerfinished(QNetworkReply* reply);
+    void networkManagerFinished(QNetworkReply* reply);
     void streamReceived();
     void onSseTimeout();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
@@ -82,7 +83,7 @@ class OpenHAB : public Integration {
  private:
     void startSse();
     void getItems();
-    void getSystemInfo(const QJsonDocument& result);
+    void getSystemInfo();
     void jsonError(const QString& error);
     void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
@@ -99,13 +100,14 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkAccessManager*        _sseNetworkManager;
-    QNetworkReply*                _sseReply;
-    QTimer*                       _sseReconnectTimer;
+    QNetworkInterface      _iface;
+    QNetworkAccessManager* _sseNetworkManager = new QNetworkAccessManager(this);
+    QNetworkReply*         _sseReply;
+    QTimer*                       _sseReconnectTimer = new QTimer(this);
     QString                       _url;
     QString                       _token;
     int                           _networktries = 0;
-    QNetworkAccessManager*        _nam;
+    QNetworkAccessManager*        _nam = new QNetworkAccessManager(this);
     QNetworkConfigurationManager* manager = new QNetworkConfigurationManager(this);
     bool                          _firstrun = false;
     bool                          _flagleaveStandby = false;

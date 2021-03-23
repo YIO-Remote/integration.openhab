@@ -27,6 +27,7 @@
 #include <QColor>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QNetworkInterface>
 #include <QString>
 
 #include "openhab_channelmappings.h"
@@ -48,7 +49,7 @@ Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, Entitie
 
 OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, NotificationsInterface* notifications,
                  YioAPIInterface* api, ConfigInterface* configObj, Plugin* plugin)
-    : Integration(config, entities, notifications, api, configObj, plugin), _sseNetworkManager(), _nam() {
+    : Integration(config, entities, notifications, api, configObj, plugin) {
     for (QVariantMap::const_iterator iter = config.begin(); iter != config.end(); ++iter) {
         if (iter.key() == "url") {
             _url = iter.value().toString();
@@ -66,12 +67,18 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
     } else if (!_url.endsWith('/')) {
         _url += "/";
     }
+    for (QNetworkInterface& iface : QNetworkInterface::allInterfaces()) {
+        if (iface.type() == QNetworkInterface::Wifi) {
+            qCDebug(m_logCategory) << iface.humanReadableName() << "(" << iface.name() << ")"
+                                   << "is up:" << iface.flags().testFlag(QNetworkInterface::IsUp)
+                                   << "is running:" << iface.flags().testFlag(QNetworkInterface::IsRunning);
+            _iface = iface;
+        }
+    }
 }
 
 void OpenHAB::streamReceived() {
-    QByteArray rawData = _sseReply->readAll();
-
-    // QByteArrayList splitted = answer.toUtf8().split('\n');
+    QByteArray     rawData = _sseReply->readAll();
     QByteArrayList splitted = rawData.split('\n');
 
     for (QByteArray data : splitted) {
@@ -88,16 +95,11 @@ void OpenHAB::streamReceived() {
         QJsonParseError parseerror;
         // remove the message start passage, because it is no valid JSON
         QJsonDocument doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
-        // QJsonDocument doc = QJsonDocument::fromJson(DataAsString.u mid(6), &parseerror);
         if (parseerror.error != QJsonParseError::NoError) {
-            qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact));
-            qCDebug(m_logCategory) << "read " << data.size() << "bytes";
-            qCDebug(m_logCategory) << "read " << data.mid(6);
-            qCCritical(m_logCategory) << "SSE JSON error:" << parseerror.errorString();
+            qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact)) << "read " << data.size() << "bytes"
+                                   << "read " << data.mid(6) << "SSE JSON error:" << parseerror.errorString();
             continue;
         }
-        // qCDebug(m_logCategory) << "res" <<data.mid(6);
-        // QVariantMap map = doc.toVariant().toMap();
         // only process state changes
         if ((doc.object().value("type").toString() == "ItemStateEvent") ||
             (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
@@ -181,7 +183,7 @@ void OpenHAB::startSse() {
     QObject::connect(_sseReply, &QNetworkReply::readyRead, this, &OpenHAB::streamReceived);
 }
 
-void OpenHAB::networkmanagerfinished(QNetworkReply* reply) {
+void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
     QString answer = reply->readAll();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
         m_notifications->add(
@@ -252,9 +254,10 @@ void OpenHAB::connect() {
         if (_tries == 20) {
             break;
         }
-    } while (!manager->isOnline());
+    } while (!_iface.flags().testFlag(QNetworkInterface::IsUp) &&
+             !_iface.flags().testFlag(QNetworkInterface::IsRunning));
 
-    if (!manager->isOnline()) {
+    if (!_iface.flags().testFlag(QNetworkInterface::IsUp) && !_iface.flags().testFlag(QNetworkInterface::IsRunning)) {
         m_notifications->add(
             true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
             [](QObject* param) {
@@ -263,13 +266,9 @@ void OpenHAB::connect() {
             },
             this);
     } else {
-        _sseReconnectTimer = new QTimer(this);
-        _nam = new QNetworkAccessManager(this);
-        _sseNetworkManager = new QNetworkAccessManager(this);
         qCDebug(m_logCategory) << "setup";
 
         _myEntities = m_entities->getByIntegration(integrationId());
-        // _nam->setConfiguration(_nam->defaultConfiguration());
 
         _tries = 0;
         _flagStandby = false;
@@ -280,7 +279,7 @@ void OpenHAB::connect() {
             QString token = "Bearer " + _token;
             request.setRawHeader("Authorization", token.toUtf8());
         }
-        QObject::connect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkmanagerfinished);
+        QObject::connect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkManagerFinished);
         _nam->get(request);
     }
 }
@@ -292,7 +291,7 @@ void OpenHAB::disconnect() {
     _sseReconnectTimer->stop();
     QObject::disconnect(_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
     QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
-    QObject::disconnect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkmanagerfinished);
+    QObject::disconnect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkManagerFinished);
     setState(DISCONNECTED);
 }
 
@@ -568,7 +567,7 @@ void OpenHAB::sendOpenHABCommand(const QString& itemId, const QString& state) {
     _nam->post(request, state.toUtf8());
 }
 
-void OpenHAB::getSystemInfo(const QJsonDocument& result) {
+void OpenHAB::getSystemInfo() {
     QNetworkRequest request(_url + "/systeminfo");
     request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
     if (_token != "") {
