@@ -100,9 +100,9 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkInterface      _iface;
-    QNetworkAccessManager* _sseNetworkManager = new QNetworkAccessManager(this);
-    QNetworkReply*         _sseReply;
+    QNetworkInterface             _iface;
+    QNetworkAccessManager*        _sseNetworkManager = new QNetworkAccessManager(this);
+    QNetworkReply*                _sseReply;
     QTimer*                       _sseReconnectTimer = new QTimer(this);
     QString                       _url;
     QString                       _token;
@@ -112,9 +112,8 @@ class OpenHAB : public Integration {
     bool                          _firstrun = false;
     bool                          _flagleaveStandby = false;
     QList<EntityInterface*>       _myEntities;  // Entities of this integration
-    QRegExp                       regex_colorvalue = QRegExp(
-        "[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
-        "[0-9]?[0-9]?[0-9]?[0-9]?");
+    QRegExp                       regex_colorvalue =
+        QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
     QRegExp  regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     int      _tries;
     bool     _flagStandby;

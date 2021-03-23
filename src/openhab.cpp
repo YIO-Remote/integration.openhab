@@ -482,9 +482,6 @@ void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity)
                 QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
-            // QColor color = QColor::fromHsv(34,45,45);
-            // QString test =
-            // QString("#%1%2%3").arg(color.red(),2,16).arg(color.green(),2,16).arg(color.blue(),2,16);
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
         } else if (regex_brightnessvalue.exactMatch(value) && entity->supported_features().contains("BRIGHTNESS")) {
             int  brightness = value.toInt();
