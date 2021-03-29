@@ -122,4 +122,5 @@ class OpenHAB : public Integration {
     QString  _tempJSONData = "";
     OpenHAB* context_openHab;
     bool     _flagSseConnected = false;
+    bool     _flagMoreDataNeeded = false;
 };

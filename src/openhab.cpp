@@ -89,54 +89,72 @@ void OpenHAB::streamReceived() {
             if ((data.length() == 0) || (data.startsWith("event: message"))) {
                 continue;
             }
-            doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
 
-            if (parseerror.error != QJsonParseError::NoError) {
+            if (_flagMoreDataNeeded) {
+                _tempJSONData = _tempJSONData + QString(data);
+                doc = QJsonDocument::fromJson(_tempJSONData.toUtf8().mid(6), &parseerror);
+                _flagMoreDataNeeded = false;
+            } else {
+                doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
+            }
+            if (!_tempJSONData.contains("type") && (parseerror.error == QJsonParseError::UnterminatedString ||
+                                                    parseerror.error == QJsonParseError::UnterminatedObject ||
+                                                    parseerror.error == QJsonParseError::IllegalValue)) {
+                _tempJSONData = QString(data.mid(6));
+                _flagMoreDataNeeded = true;
+
+            } else {
+                _flagMoreDataNeeded = false;
+                _tempJSONData = "";
+            }
+
+            if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
                 qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact)) << "read " << data.size()
                                        << "bytes"
                                        << "read " << data.mid(6) << "SSE JSON error:" << parseerror.error
                                        << parseerror.errorString();
                 continue;
             }
-
             // only process state changes
-            if ((doc.object().value("type").toString() == "ItemStateEvent") ||
-                (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
-                // get item name from the topic string
-                // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
-                QString          name = doc.object().value("topic").toString().split('/')[2];
-                EntityInterface* entity = m_entities->getEntityInterface(name);
-                if (entity != nullptr && entity->connected()) {
-                    pyload = QJsonDocument::fromJson(doc.object().value("payload").toString().toUtf8(), &parseerror);
-                    if (parseerror.error != QJsonParseError::NoError) {
-                        qCDebug(m_logCategory) << QString(pyload.toJson(QJsonDocument::Compact)) << "read "
-                                               << doc.object().value("payload").toString().size() << "bytes"
-                                               << "read " << doc.object().value("payload").toString()
-                                               << "SSE JSON error:" << parseerror.error << parseerror.errorString();
-                        continue;
-                    }
-                    qCDebug(m_logCategory) << pyload.object().value("value").toString();
-                    // because OpenHab doesn't send the item type in the status update, we have to extract it from
-                    // our own entity library
-                    if (pyload.object().value("value").toString() != "UNDEF") {
-                        if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-                            regex_brightnessvalue.exactMatch(pyload.object().value("value").toString())) {
-                            processLight(pyload.object().value("value").toString(), entity, true);
-                        } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
-                                   regex_colorvalue.exactMatch(pyload.object().value("value").toString())) {
-                            processComplexLight(pyload.object().value("value").toString(), entity);
-                        } else if (entity->type() == "light") {
-                            processLight(pyload.object().value("value").toString(), entity, false);
-                        } else if (entity->type() == "blind") {
-                            processBlind(pyload.object().value("value").toString(), entity);
-                        } else if (entity->type() == "switch") {
-                            processSwitch(pyload.object().value("value").toString(), entity);
+            if (!_flagMoreDataNeeded) {
+                if ((doc.object().value("type").toString() == "ItemStateEvent") ||
+                    (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
+                    // get item name from the topic string
+                    // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
+                    QString          name = doc.object().value("topic").toString().split('/')[2];
+                    EntityInterface* entity = m_entities->getEntityInterface(name);
+                    if (entity != nullptr && entity->connected()) {
+                        pyload =
+                            QJsonDocument::fromJson(doc.object().value("payload").toString().toUtf8(), &parseerror);
+                        if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
+                            qCDebug(m_logCategory) << QString(pyload.toJson(QJsonDocument::Compact)) << "read "
+                                                   << doc.object().value("payload").toString().size() << "bytes"
+                                                   << "read " << doc.object().value("payload").toString()
+                                                   << "SSE JSON error:" << parseerror.error << parseerror.errorString();
+                            continue;
                         }
+                        // because OpenHab doesn't send the item type in the status update, we have to extract it from
+                        // our own entity library
+                        if (pyload.object().value("value").toString() != "UNDEF") {
+                            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
+                                regex_brightnessvalue.exactMatch(pyload.object().value("value").toString())) {
+                                processLight(pyload.object().value("value").toString(), entity, true);
+                            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
+                                       regex_colorvalue.exactMatch(pyload.object().value("value").toString())) {
+                                processComplexLight(pyload.object().value("value").toString(), entity);
+                            } else if (entity->type() == "light") {
+                                processLight(pyload.object().value("value").toString(), entity, false);
+                            } else if (entity->type() == "blind") {
+                                processBlind(pyload.object().value("value").toString(), entity);
+                            } else if (entity->type() == "switch") {
+                                processSwitch(pyload.object().value("value").toString(), entity);
+                            }
+                        }
+                    } else if (entity == nullptr) {
+                        // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
+                    } else {
+                        qCDebug(m_logCategory) << QString("Entity %1 is offline").arg(name);
                     }
-                } else if (entity == nullptr) {
-                    // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
-                } else {
-                    qCDebug(m_logCategory) << QString("Entity %1 is offline").arg(name);
                 }
             }
         }
