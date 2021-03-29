@@ -43,7 +43,6 @@ Integration* OpenHABPlugin::createIntegration(const QVariantMap& config, Entitie
                                               NotificationsInterface* notifications, YioAPIInterface* api,
                                               ConfigInterface* configObj) {
     qCInfo(m_logCategory) << "Creating OpenHAB integration plugin" << PLUGIN_VERSION;
-
     return new OpenHAB(config, entities, notifications, api, configObj, this);
 }
 
@@ -67,6 +66,7 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
     } else if (!_url.endsWith('/')) {
         _url += "/";
     }
+    context_openHab = this;
     for (QNetworkInterface& iface : QNetworkInterface::allInterfaces()) {
         if (iface.type() == QNetworkInterface::Wifi) {
             qCDebug(m_logCategory) << iface.humanReadableName() << "(" << iface.name() << ")"
@@ -78,84 +78,112 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
 }
 
 void OpenHAB::streamReceived() {
-    QJsonParseError parseerror;
-    QJsonDocument   doc;
+    if (_sseReply->error() == QNetworkReply::NoError) {
+        QJsonParseError parseerror;
+        QJsonDocument   doc;
+        QJsonDocument   pyload;
+        QRegExp         regex = QRegExp("[1]?[0-9]?[0-9]");
+        QByteArray      rawData = _sseReply->readAll();
+        QByteArrayList  splitted = rawData.split('\n');
 
-    QByteArray     rawData = _sseReply->readAll();
-    QByteArrayList splitted = rawData.split('\n');
+        for (QByteArray data : splitted) {
+            if ((data.length() == 0) || (data.startsWith("event: message"))) {
+                continue;
+            }
 
-    for (QByteArray data : splitted) {
-        if ((data.length() == 0) || (data.startsWith("event: message"))) {
-            continue;
-        }
-
-        if (_flagMoreDataNeeded) {
-            _tempJSONData = _tempJSONData + QString(data);
-            doc = QJsonDocument::fromJson(_tempJSONData.toUtf8().mid(6), &parseerror);
-            _flagMoreDataNeeded = false;
-        } else {
-            doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
-        }
-        if (parseerror.error == QJsonParseError::UnterminatedString ||
-            parseerror.error == QJsonParseError::UnterminatedObject) {
-            _tempJSONData = QString(data);
-            _flagMoreDataNeeded = true;
-        }
-
-        if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
-            qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact)) << "read " << data.size() << "bytes"
-                                   << "read " << data.mid(6) << "SSE JSON error:" << parseerror.error
-                                   << parseerror.errorString();
-            continue;
-        }
-        QString t = doc.object().value("type").toString();
-        // only process state changes
-        if (!_flagMoreDataNeeded) {
-            if ((doc.object().value("type").toString() == "ItemStateEvent") ||
-                (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
-                // get item name from the topic string
-                // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
-                QString          name = doc.object().value("topic").toString().split('/')[2];
-                EntityInterface* entity = m_entities->getEntityInterface(name);
-                if (entity != nullptr && entity->connected()) {
-                    QString value = doc.object().value("payload")["value"].toString();
-                    // because OpenHab doesn't send the item type in the status update, we have to extract it from our
-                    // own entity library
-                    if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-                        regex_brightnessvalue.exactMatch(value)) {
-                        processLight(value, entity, true);
-                    } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
-                               regex_colorvalue.exactMatch(value)) {
-                        processComplexLight(value, entity);
-                    } else if (entity->type() == "light") {
-                        processLight(value, entity, false);
-                    } else if (entity->type() == "blind") {
-                        processBlind(value, entity);
-                    } else if (entity->type() == "switch") {
-                        processSwitch(value, entity);
-                    }
-                } else if (entity == nullptr) {
-                    // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
+            if (_flagMoreDataNeeded) {
+                _tempJSONData = _tempJSONData + QString(data);
+                doc = QJsonDocument::fromJson(_tempJSONData.toUtf8().mid(6), &parseerror);
+                _flagMoreDataNeeded = false;
+            } else {
+                doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
+            }
+            if (parseerror.error == QJsonParseError::UnterminatedString ||
+                parseerror.error == QJsonParseError::UnterminatedObject ||
+                parseerror.error == QJsonParseError::IllegalValue ||
+                parseerror.error == QJsonParseError::IllegalEscapeSequence) {
+                if (_tempJSONData == "") {
+                    _tempJSONData = QString(data.mid(6));
+                    _flagMoreDataNeeded = true;
                 } else {
-                    qCDebug(m_logCategory) << QString("Entity %1 is offline").arg(name);
+                    _flagMoreDataNeeded = true;
+                }
+            } else {
+                _tempJSONData = "";
+            }
+
+            if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
+                qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact)) << "read " << data.size()
+                                       << "bytes"
+                                       << "read " << data.mid(6) << "SSE JSON error:" << parseerror.error
+                                       << parseerror.errorString();
+                continue;
+            }
+            QString t = doc.object().value("type").toString();
+            // only process state changes
+            if (!_flagMoreDataNeeded) {
+                if ((doc.object().value("type").toString() == "ItemStateEvent") ||
+                    (doc.object().value("type").toString() == "GroupItemStateChangedEvent")) {
+                    // get item name from the topic string
+                    // example: smarthome/items/EG_Esszimmer_Sonos_CurrentPlayingTime/state
+                    QString          name = doc.object().value("topic").toString().split('/')[2];
+                    EntityInterface* entity = m_entities->getEntityInterface(name);
+                    if (entity != nullptr && entity->connected()) {
+                        pyload =
+                            QJsonDocument::fromJson(doc.object().value("payload").toString().toUtf8(), &parseerror);
+                        if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
+                            qCDebug(m_logCategory) << QString(pyload.toJson(QJsonDocument::Compact)) << "read "
+                                                   << doc.object().value("payload").toString().size() << "bytes"
+                                                   << "read " << doc.object().value("payload").toString()
+                                                   << "SSE JSON error:" << parseerror.error << parseerror.errorString();
+                            continue;
+                        }
+
+                        // because OpenHab doesn't send the item type in the status update, we have to extract it from
+                        // our own entity library
+                        if (pyload.object().value("value").toString() != "UNDEF") {
+                            if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
+                                regex_brightnessvalue.exactMatch(pyload.object().value("value").toString())) {
+                                processLight(pyload.object().value("value").toString(), entity, true);
+                            } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
+                                       regex_colorvalue.exactMatch(pyload.object().value("value").toString())) {
+                                processComplexLight(pyload.object().value("value").toString(), entity);
+                            } else if (entity->type() == "light") {
+                                processLight(pyload.object().value("value").toString(), entity, false);
+                            } else if (entity->type() == "blind") {
+                                processBlind(pyload.object().value("value").toString(), entity);
+                            } else if (entity->type() == "switch") {
+                                processSwitch(pyload.object().value("value").toString(), entity);
+                            }
+                        }
+                    } else if (entity == nullptr) {
+                        // qCDebug(m_logCategory) << QString("openHab Item %1 is not configured").arg(name);
+                    } else {
+                        qCDebug(m_logCategory) << QString("Entity %1 is offline").arg(name);
+                    }
                 }
             }
         }
+    } else {
+        qCDebug(m_logCategory) << "streamerror";
     }
 }
 
 void OpenHAB::streamFinished(QNetworkReply* reply) {
     reply->abort();
 
-    if (_flagOpenHabConnected && _flagStandby == false) {
+    if (_flagOpenHabConnected && !_flagStandby) {
         qCDebug(m_logCategory) << "Lost SSE connection to OpenHab";
-        _sseReconnectTimer->start();
+        // TODO(miloit): will be implemented in the next release
+        // _sseReconnectTimer->start();
     }
+    reply->deleteLater();
 }
 
 void OpenHAB::onSseTimeout() {
     if (_tries == 3) {
         disconnect();
+        qCDebug(m_logCategory) << "disconnect 1";
 
         qCCritical(m_logCategory) << "Cannot connect to OpenHab: retried 3 times connecting to" << _url;
         QObject* param = this;
@@ -191,7 +219,8 @@ void OpenHAB::startSse() {
                          QNetworkRequest::AlwaysNetwork);  // Events shouldn't be cached
 
     _sseReply = _sseNetworkManager->get(request);
-    QObject::connect(_sseReply, &QNetworkReply::readyRead, this, &OpenHAB::streamReceived);
+    QObject::connect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+    _flagSseConnected = true;
 }
 
 void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
@@ -206,29 +235,35 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
             this);
         _flagOpenHabConnected = false;
         disconnect();
+        qCDebug(m_logCategory) << "disconnect 2";
         qCDebug(m_logCategory) << "openhab not reachable";
     } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
-        if (state() != CONNECTED) {
+        if (state() != CONNECTED && answer.contains("systemInfo")) {
             qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
 
             _sseReconnectTimer->setSingleShot(true);
             _sseReconnectTimer->setInterval(2000);
             _sseReconnectTimer->stop();
 
-            QObject::connect(_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
-            QObject::connect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
+            QObject::connect(_sseNetworkManager, &QNetworkAccessManager::finished, context_openHab,
+                             &OpenHAB::streamFinished);
+            QObject::connect(_sseReconnectTimer, &QTimer::timeout, context_openHab, &OpenHAB::onSseTimeout);
             _flagOpenHabConnected = true;
             startSse();
-            _firstrun = true;
             getItems();
 
-            setState(CONNECTED);
-
-        } else if (state() == CONNECTED && _flagleaveStandby) {
-            _flagOpenHabConnected = true;
-            _flagleaveStandby = false;
-            getItems();
-            startSse();
+        } else if (state() != CONNECTED && answer.contains("rest/items/")) {
+            QJsonParseError parseerror;
+            if (answer != "") {
+                QJsonDocument doc = QJsonDocument::fromJson(answer.toUtf8(), &parseerror);
+                if (parseerror.error != QJsonParseError::NoError) {
+                    jsonError(parseerror.errorString());
+                    return;
+                }
+                processItems(doc, true);
+                _flagOpenHabConnected = true;
+                setState(CONNECTED);
+            }
         } else if (state() == CONNECTED && answer.contains("rest/items/")) {
             QJsonParseError parseerror;
             if (answer != "") {
@@ -237,11 +272,14 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
                     jsonError(parseerror.errorString());
                     return;
                 }
-                processItems(doc, _firstrun);
-                _firstrun = false;
-
+                processItems(doc, false);
                 _flagOpenHabConnected = true;
             }
+        } else if (state() == CONNECTED && _flagleaveStandby) {
+            _flagOpenHabConnected = true;
+            _flagleaveStandby = false;
+            getItems();
+            startSse();
         } else if (state() == CONNECTED) {
             _flagOpenHabConnected = true;
         }
@@ -255,18 +293,12 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
             this);
         _flagOpenHabConnected = false;
         disconnect();
+        qCDebug(m_logCategory) << "disconnect 3";
         qCDebug(m_logCategory) << "openhab not reachable";
     }
 }
 void OpenHAB::connect() {
     setState(CONNECTING);
-    do {
-        _tries++;
-        if (_tries == 20) {
-            break;
-        }
-    } while (!_iface.flags().testFlag(QNetworkInterface::IsUp) &&
-             !_iface.flags().testFlag(QNetworkInterface::IsRunning));
 
     if (!_iface.flags().testFlag(QNetworkInterface::IsUp) && !_iface.flags().testFlag(QNetworkInterface::IsRunning)) {
         m_notifications->add(
@@ -281,49 +313,47 @@ void OpenHAB::connect() {
 
         _myEntities = m_entities->getByIntegration(integrationId());
 
-        _tries = 0;
         _flagStandby = false;
-        QNetworkRequest request(_url + "systeminfo");
-        request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
-        if (_token != "") {
-            request.setRawHeader("accept", "*/*");
-            QString token = "Bearer " + _token;
-            request.setRawHeader("Authorization", token.toUtf8());
-        }
-        QObject::connect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkManagerFinished);
-        _nam->get(request);
+        QObject::connect(_nam, &QNetworkAccessManager::finished, context_openHab, &OpenHAB::networkManagerFinished);
+        getSystemInfo();
     }
 }
 
 void OpenHAB::disconnect() {
-    if (_sseReply->isRunning()) {
-        _sseReply->abort();
+    qCDebug(m_logCategory) << state();
+    if (_flagSseConnected) {
+        if (_sseReply->isRunning()) {
+            _sseReply->abort();
+            QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+            _sseNetworkManager->clearConnectionCache();
+            _flagSseConnected = false;
+        }
     }
     _sseReconnectTimer->stop();
-    QObject::disconnect(_sseNetworkManager, &QNetworkAccessManager::finished, this, &OpenHAB::streamFinished);
-    QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, this, &OpenHAB::onSseTimeout);
-    QObject::disconnect(_nam, &QNetworkAccessManager::finished, this, &OpenHAB::networkManagerFinished);
+    QObject::disconnect(_sseNetworkManager, &QNetworkAccessManager::finished, context_openHab,
+                        &OpenHAB::streamFinished);
+    QObject::disconnect(_sseReconnectTimer, &QTimer::timeout, context_openHab, &OpenHAB::onSseTimeout);
+    QObject::disconnect(_nam, &QNetworkAccessManager::finished, context_openHab, &OpenHAB::networkManagerFinished);
+
     setState(DISCONNECTED);
 }
 
 void OpenHAB::enterStandby() {
     _flagStandby = true;
-    if (_sseReply->isRunning()) {
-        _sseReply->abort();
+    if (_flagSseConnected) {
+        if (_sseReply->isRunning()) {
+            _sseReply->abort();
+            QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+            _sseNetworkManager->clearConnectionCache();
+            _flagSseConnected = false;
+        }
     }
 }
 
 void OpenHAB::leaveStandby() {
     _flagStandby = false;
     _flagleaveStandby = true;
-    QNetworkRequest request(_url + "/systeminfo");
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "text/plain");
-    if (_token != "") {
-        request.setRawHeader("accept", "*/*");
-        QString token = "Bearer " + _token;
-        request.setRawHeader("Authorization", token.toUtf8());
-    }
-    _nam->get(request);
+    getSystemInfo();
 }
 
 void OpenHAB::jsonError(const QString& error) {
@@ -362,7 +392,6 @@ void OpenHAB::processItem(const QJsonDocument& result) {
 
     for (int i = 0; i < _myEntities.size(); ++i) {
         if (json.value("name") == _myEntities[i]->entity_id()) {
-            // CDebug(m_logCategory) << "Key = " << "name" << ", Value = " << json.value("name").toString();
             processEntity(json, _myEntities[i]);
         }
     }

@@ -109,17 +109,18 @@ class OpenHAB : public Integration {
     int                           _networktries = 0;
     QNetworkAccessManager*        _nam = new QNetworkAccessManager(this);
     QNetworkConfigurationManager* manager = new QNetworkConfigurationManager(this);
-    bool                          _firstrun = false;
     bool                          _flagleaveStandby = false;
     QList<EntityInterface*>       _myEntities;  // Entities of this integration
     QRegExp                       regex_colorvalue =
         QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
-    QRegExp  regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
-    int      _tries;
-    bool     _flagStandby;
-    bool     _flagprocessitems = false;
+    QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
+    int     _tries;
+    bool    _flagStandby;
+    // bool     _flagprocessitems = false;
     bool     _flagOpenHabConnected = false;
     QObject* context = new QObject(this);
     QString  _tempJSONData = "";
     bool     _flagMoreDataNeeded = false;
+    OpenHAB* context_openHab;
+    bool     _flagSseConnected = false;
 };
