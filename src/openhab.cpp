@@ -103,7 +103,7 @@ void OpenHAB::streamReceived() {
                 _tempJSONData = QString(data.mid(6));
                 _flagMoreDataNeeded = true;
 
-            } else {
+            } else if (_tempJSONData != "") {
                 _flagMoreDataNeeded = false;
                 _tempJSONData = "";
             }
