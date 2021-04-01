@@ -99,7 +99,8 @@ void OpenHAB::streamReceived() {
             }
             if ((parseerror.error == QJsonParseError::UnterminatedString ||
                  parseerror.error == QJsonParseError::UnterminatedObject ||
-                 parseerror.error == QJsonParseError::IllegalValue)) {
+                 parseerror.error == QJsonParseError::IllegalValue ||
+                 parseerror.error == QJsonParseError::IllegalEscapeSequence)) {
                 _tempJSONData = QString(data.mid(6));
                 _flagMoreDataNeeded = true;
 
@@ -334,7 +335,7 @@ void OpenHAB::disconnect() {
 }
 
 void OpenHAB::enterStandby() {
-    _flagStandby = true;
+    /*_flagStandby = true;
     if (_flagSseConnected) {
         if (_sseReply->isRunning()) {
             _sseReply->abort();
@@ -342,7 +343,7 @@ void OpenHAB::enterStandby() {
             _sseNetworkManager->clearConnectionCache();
             _flagSseConnected = false;
         }
-    }
+    }*/
 }
 
 void OpenHAB::leaveStandby() {
