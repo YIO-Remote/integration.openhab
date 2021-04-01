@@ -92,14 +92,14 @@ void OpenHAB::streamReceived() {
 
             if (_flagMoreDataNeeded) {
                 _tempJSONData = _tempJSONData + QString(data);
-                doc = QJsonDocument::fromJson(_tempJSONData.toUtf8().mid(6), &parseerror);
+                doc = QJsonDocument::fromJson(_tempJSONData.toUtf8(), &parseerror);
                 _flagMoreDataNeeded = false;
             } else {
                 doc = QJsonDocument::fromJson(data.mid(6), &parseerror);
             }
-            if (!_tempJSONData.contains("type") && (parseerror.error == QJsonParseError::UnterminatedString ||
-                                                    parseerror.error == QJsonParseError::UnterminatedObject ||
-                                                    parseerror.error == QJsonParseError::IllegalValue)) {
+            if ((parseerror.error == QJsonParseError::UnterminatedString ||
+                 parseerror.error == QJsonParseError::UnterminatedObject ||
+                 parseerror.error == QJsonParseError::IllegalValue)) {
                 _tempJSONData = QString(data.mid(6));
                 _flagMoreDataNeeded = true;
 
@@ -111,7 +111,7 @@ void OpenHAB::streamReceived() {
             if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
                 qCDebug(m_logCategory) << QString(doc.toJson(QJsonDocument::Compact)) << "read " << data.size()
                                        << "bytes"
-                                       << "read " << data.mid(6) << "SSE JSON error:" << parseerror.error
+                                       << "read data" << data.mid(6) << "SSE JSON error:" << parseerror.error
                                        << parseerror.errorString();
                 continue;
             }
@@ -229,7 +229,8 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
             this);
         _flagOpenHabConnected = false;
         disconnect();
-        qCDebug(m_logCategory) << "disconnect 2";
+        qCDebug(m_logCategory) << "disconnect 2"
+                               << QString::number(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
         qCDebug(m_logCategory) << "openhab not reachable";
     } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
         if (state() != CONNECTED && answer.contains("systemInfo")) {
@@ -345,8 +346,8 @@ void OpenHAB::enterStandby() {
 }
 
 void OpenHAB::leaveStandby() {
-    _flagStandby = false;
-    _flagleaveStandby = true;
+    /*_flagStandby = false;
+    _flagleaveStandby = true;*/
     getSystemInfo();
 }
 
