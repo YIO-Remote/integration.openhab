@@ -100,27 +100,30 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkInterface             _iface;
-    QNetworkAccessManager*        _sseNetworkManager = new QNetworkAccessManager(this);
-    QNetworkReply*                _sseReply;
-    QTimer*                       _sseReconnectTimer = new QTimer(this);
-    QString                       _url;
-    QString                       _token;
-    int                           _networktries = 0;
-    QNetworkAccessManager*        _nam = new QNetworkAccessManager(this);
-    QNetworkConfigurationManager* manager = new QNetworkConfigurationManager(this);
-    bool                          _flagleaveStandby = false;
-    QList<EntityInterface*>       _myEntities;  // Entities of this integration
-    QRegExp                       regex_colorvalue =
+    QNetworkInterface       _iface;
+    QNetworkAccessManager*  _sseNetworkManager;
+    QNetworkReply*          _sseReply;
+    QTimer*                 _sseReconnectTimer;
+    QString                 _url;
+    QString                 _token;
+    int                     _networktries = 0;
+    QNetworkAccessManager*  _nam;
+    bool                    _flagleaveStandby = false;
+    QList<EntityInterface*> _myEntities;  // Entities of this integration
+    QRegExp                 regex_colorvalue =
         QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
     QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
     int     _tries;
     bool    _flagStandby;
     // bool     _flagprocessitems = false;
-    bool     _flagOpenHabConnected = false;
-    QObject* context = new QObject(this);
-    QString  _tempJSONData = "";
-    OpenHAB* context_openHab;
-    bool     _flagSseConnected = false;
-    bool     _flagMoreDataNeeded = false;
+    bool _flagOpenHabConnected = false;
+    // QObject* context = new QObject(this);
+    QString        _tempJSONData = "";
+    OpenHAB*       context_openHab;
+    bool           _flagSseConnected = false;
+    bool           _flagMoreDataNeeded = false;
+    QJsonDocument  doc;
+    QJsonDocument  pyload;
+    QByteArray     rawData;
+    QByteArrayList splitted;
 };

@@ -67,6 +67,11 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
         _url += "/";
     }
     context_openHab = this;
+    _sseNetworkManager = new QNetworkAccessManager(context_openHab);
+    _sseReconnectTimer = new QTimer(context_openHab);
+    _nam = new QNetworkAccessManager(context_openHab);
+    _nam = new QNetworkAccessManager(context_openHab);
+
     for (QNetworkInterface& iface : QNetworkInterface::allInterfaces()) {
         if (iface.type() == QNetworkInterface::Wifi) {
             qCDebug(m_logCategory) << iface.humanReadableName() << "(" << iface.name() << ")"
@@ -80,10 +85,10 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
 void OpenHAB::streamReceived() {
     if (_sseReply->error() == QNetworkReply::NoError) {
         QJsonParseError parseerror;
-        QJsonDocument   doc;
-        QJsonDocument   pyload;
-        QByteArray      rawData = _sseReply->readAll();
-        QByteArrayList  splitted = rawData.split('\n');
+
+        rawData.clear();
+        rawData = _sseReply->readAll();
+        splitted = rawData.split('\n');
 
         for (QByteArray data : splitted) {
             if ((data.length() == 0) || (data.startsWith("event: message"))) {
@@ -103,10 +108,13 @@ void OpenHAB::streamReceived() {
                  parseerror.error == QJsonParseError::IllegalEscapeSequence)) {
                 _tempJSONData = QString(data.mid(6));
                 _flagMoreDataNeeded = true;
-
             } else if (_tempJSONData != "") {
                 _flagMoreDataNeeded = false;
                 _tempJSONData = "";
+            }
+
+            if (parseerror.error == QJsonParseError::GarbageAtEnd) {
+                doc = QJsonDocument::fromJson(data.mid(6).left(data.lastIndexOf("}") + 1), &parseerror);
             }
 
             if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
@@ -128,10 +136,11 @@ void OpenHAB::streamReceived() {
                         pyload =
                             QJsonDocument::fromJson(doc.object().value("payload").toString().toUtf8(), &parseerror);
                         if (parseerror.error != QJsonParseError::NoError && !_flagMoreDataNeeded) {
-                            qCDebug(m_logCategory) << QString(pyload.toJson(QJsonDocument::Compact)) << "read "
-                                                   << doc.object().value("payload").toString().size() << "bytes"
-                                                   << "read " << doc.object().value("payload").toString()
-                                                   << "SSE JSON error:" << parseerror.error << parseerror.errorString();
+                            qCDebug(m_logCategory)
+                                << QString(pyload.toJson(QJsonDocument::Compact)) << "read "
+                                << doc.object().value("payload").toString().size() << "bytes"
+                                << "read " << doc.object().value("payload").toString()
+                                << "SSE JSON pyload error:" << parseerror.error << parseerror.errorString();
                             continue;
                         }
                         // because OpenHab doesn't send the item type in the status update, we have to extract it from
@@ -158,7 +167,12 @@ void OpenHAB::streamReceived() {
                     }
                 }
             }
+            doc = QJsonDocument();
+            pyload = QJsonDocument();
+            data.clear();
         }
+        rawData.clear();
+        splitted.clear();
     } else {
         qCDebug(m_logCategory) << "streamerror";
     }
@@ -169,13 +183,13 @@ void OpenHAB::streamFinished(QNetworkReply* reply) {
 
     if (_flagOpenHabConnected && !_flagStandby) {
         qCDebug(m_logCategory) << "Lost SSE connection to OpenHab";
-        // TODO(miloit): will be implemented in the next release
-        // _sseReconnectTimer->start();
+        _sseReconnectTimer->start();
     }
     reply->deleteLater();
 }
 
 void OpenHAB::onSseTimeout() {
+    qCDebug(m_logCategory) << "timer";
     if (_tries == 3) {
         disconnect();
         qCDebug(m_logCategory) << "disconnect 1";
@@ -193,10 +207,19 @@ void OpenHAB::onSseTimeout() {
 
         _tries = 0;
     } else {
-        startSse();
-        qCDebug(m_logCategory) << "Try to reconnect the OpenHab SSE connection";
-
-        _tries++;
+        if (_flagSseConnected) {
+            if (_sseReply->isRunning()) {
+                _sseReply->abort();
+                QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+                _flagSseConnected = false;
+            }
+        }
+        if (!_flagStandby) {
+            startSse();
+            qCDebug(m_logCategory) << "Try to reconnect the OpenHab SSE connection";
+            _sseReconnectTimer->stop();
+            _tries++;
+        }
     }
 }
 
@@ -239,11 +262,12 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
 
             _sseReconnectTimer->setSingleShot(true);
             _sseReconnectTimer->setInterval(2000);
+            QObject::connect(_sseReconnectTimer, &QTimer::timeout, context_openHab, &OpenHAB::onSseTimeout);
             _sseReconnectTimer->stop();
 
             QObject::connect(_sseNetworkManager, &QNetworkAccessManager::finished, context_openHab,
                              &OpenHAB::streamFinished);
-            QObject::connect(_sseReconnectTimer, &QTimer::timeout, context_openHab, &OpenHAB::onSseTimeout);
+
             _flagOpenHabConnected = true;
             startSse();
             getItems();
@@ -335,20 +359,19 @@ void OpenHAB::disconnect() {
 }
 
 void OpenHAB::enterStandby() {
-    /*_flagStandby = true;
+    _flagStandby = true;
     if (_flagSseConnected) {
         if (_sseReply->isRunning()) {
             _sseReply->abort();
             QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
-            _sseNetworkManager->clearConnectionCache();
             _flagSseConnected = false;
         }
-    }*/
+    }
 }
 
 void OpenHAB::leaveStandby() {
-    /*_flagStandby = false;
-    _flagleaveStandby = true;*/
+    _flagStandby = false;
+    _flagleaveStandby = true;
     getSystemInfo();
 }
 
