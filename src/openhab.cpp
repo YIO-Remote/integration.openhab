@@ -244,19 +244,27 @@ void OpenHAB::startSse() {
 void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
     QString answer = reply->readAll();
     if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() != 200) {
-        m_notifications->add(
-            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-            [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
-        _flagOpenHabConnected = false;
-        disconnect();
-        qCDebug(m_logCategory) << "disconnect 2"
-                               << QString::number(reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
-        qCDebug(m_logCategory) << "openhab not reachable";
+        if (_networktries == 3) {
+            m_notifications->add(
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
+            _flagOpenHabConnected = false;
+            disconnect();
+            qCDebug(m_logCategory) << "disconnect 2"
+                                   << QString::number(
+                                          reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
+            qCDebug(m_logCategory) << "openhab not reachable";
+            _networktries = 0;
+        } else {
+            getSystemInfo();
+            _networktries++;
+        }
     } else if (reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt() == 200) {
+        _networktries = 0;
         if (state() != CONNECTED && answer.contains("systemInfo")) {
             qCDebug(m_logCategory) << reply->header(QNetworkRequest::ContentTypeHeader).toString() << " : " << answer;
 
@@ -304,17 +312,23 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
             _flagOpenHabConnected = true;
         }
     } else {
-        m_notifications->add(
-            true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
-            [](QObject* param) {
-                Integration* i = qobject_cast<Integration*>(param);
-                i->connect();
-            },
-            this);
-        _flagOpenHabConnected = false;
-        disconnect();
-        qCDebug(m_logCategory) << "disconnect 3";
-        qCDebug(m_logCategory) << "openhab not reachable";
+        if (_networktries == 3) {
+            m_notifications->add(
+                true, tr("Cannot connect to ").append(friendlyName()).append("."), tr("Reconnect"),
+                [](QObject* param) {
+                    Integration* i = qobject_cast<Integration*>(param);
+                    i->connect();
+                },
+                this);
+            _flagOpenHabConnected = false;
+            disconnect();
+            qCDebug(m_logCategory) << "disconnect 3";
+            qCDebug(m_logCategory) << "openhab not reachable";
+            _networktries = 0;
+        } else {
+            getSystemInfo();
+            _networktries++;
+        }
     }
 }
 void OpenHAB::connect() {
