@@ -211,6 +211,7 @@ void OpenHAB::onSseTimeout() {
             if (_sseReply->isRunning()) {
                 _sseReply->abort();
                 QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+                _sseNetworkManager->clearConnectionCache();
                 _flagSseConnected = false;
             }
         }
@@ -235,7 +236,6 @@ void OpenHAB::startSse() {
     request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
     request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
                          QNetworkRequest::AlwaysNetwork);  // Events shouldn't be cached
-
     _sseReply = _sseNetworkManager->get(request);
     QObject::connect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
     _flagSseConnected = true;
@@ -364,6 +364,7 @@ void OpenHAB::enterStandby() {
         if (_sseReply->isRunning()) {
             _sseReply->abort();
             QObject::disconnect(_sseReply, &QNetworkReply::readyRead, context_openHab, &OpenHAB::streamReceived);
+            _sseNetworkManager->clearConnectionCache();
             _flagSseConnected = false;
         }
     }
