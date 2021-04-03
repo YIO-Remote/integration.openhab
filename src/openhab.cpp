@@ -70,7 +70,6 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
     _sseNetworkManager = new QNetworkAccessManager(context_openHab);
     _sseReconnectTimer = new QTimer(context_openHab);
     _nam = new QNetworkAccessManager(context_openHab);
-    _nam = new QNetworkAccessManager(context_openHab);
 
     for (QNetworkInterface& iface : QNetworkInterface::allInterfaces()) {
         if (iface.type() == QNetworkInterface::Wifi) {
@@ -85,6 +84,10 @@ OpenHAB::OpenHAB(const QVariantMap& config, EntitiesInterface* entities, Notific
 void OpenHAB::streamReceived() {
     if (_sseReply->error() == QNetworkReply::NoError) {
         QJsonParseError parseerror;
+        QJsonDocument   doc;
+        QJsonDocument   pyload;
+        QByteArray      rawData;
+        QByteArrayList  splitted;
 
         rawData.clear();
         rawData = _sseReply->readAll();
@@ -147,10 +150,10 @@ void OpenHAB::streamReceived() {
                         // our own entity library
                         if (pyload.object().value("value").toString() != "UNDEF") {
                             if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-                                regex_brightnessvalue.exactMatch(pyload.object().value("value").toString())) {
+                                _brightnessValueTemplate.exactMatch(pyload.object().value("value").toString())) {
                                 processLight(pyload.object().value("value").toString(), entity, true);
                             } else if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
-                                       regex_colorvalue.exactMatch(pyload.object().value("value").toString())) {
+                                       _colorValueTemplate.exactMatch(pyload.object().value("value").toString())) {
                                 processComplexLight(pyload.object().value("value").toString(), entity);
                             } else if (entity->type() == "light") {
                                 processLight(pyload.object().value("value").toString(), entity, false);
@@ -193,7 +196,6 @@ void OpenHAB::onSseTimeout() {
     if (_tries == 3) {
         disconnect();
         qCDebug(m_logCategory) << "disconnect 1";
-
         qCCritical(m_logCategory) << "Cannot connect to OpenHab: retried 3 times connecting to" << _url;
         QObject* param = this;
 
@@ -256,8 +258,8 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
             disconnect();
             qCDebug(m_logCategory) << "disconnect 2"
                                    << QString::number(
-                                          reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt());
-            qCDebug(m_logCategory) << "openhab not reachable";
+                                          reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt())
+                                   << "openhab not reachable";
             _networktries = 0;
         } else {
             getSystemInfo();
@@ -322,8 +324,8 @@ void OpenHAB::networkManagerFinished(QNetworkReply* reply) {
                 this);
             _flagOpenHabConnected = false;
             disconnect();
-            qCDebug(m_logCategory) << "disconnect 3";
-            qCDebug(m_logCategory) << "openhab not reachable";
+            qCDebug(m_logCategory) << "disconnect 3"
+                                   << "openhab not reachable";
             _networktries = 0;
         } else {
             getSystemInfo();
@@ -479,11 +481,11 @@ void OpenHAB::processEntity(const QJsonObject& item, EntityInterface* entity) {
 
     if (entity->connected()) {
         if (entity->type() == "light" && entity->supported_features().contains("BRIGHTNESS") &&
-            regex_brightnessvalue.exactMatch(item.value("state").toString())) {
+            _brightnessValueTemplate.exactMatch(item.value("state").toString())) {
             processLight(item.value("state").toString(), entity, true);
         }
         if (entity->type() == "light" && entity->supported_features().contains("COLOR") &&
-            regex_colorvalue.exactMatch(item.value("state").toString())) {
+            _colorValueTemplate.exactMatch(item.value("state").toString())) {
             processComplexLight(item.value("state").toString(), entity);
         }
         if (entity->type() == "light") {
@@ -550,14 +552,14 @@ void OpenHAB::processSwitch(const QString& value, EntityInterface* entity) {
 void OpenHAB::processComplexLight(const QString& value, EntityInterface* entity) {
     if (entity == nullptr) return;
     if (entity->supported_features().contains("COLOR")) {
-        if (regex_colorvalue.exactMatch(value)) {
+        if (_colorValueTemplate.exactMatch(value)) {
             QStringList cs = value.split(',');
             QColor      color =
                 QColor((cs[0].toInt()), ((cs[1].toInt() * 255) / 100), ((cs[2].toInt() * 255) / 100), QColor::Hsl);
             char buffer[10];
             snprintf(buffer, sizeof(buffer), "#%02X%02X%02X", color.red(), color.green(), color.blue());
             entity->updateAttrByIndex(LightDef::COLOR, buffer);
-        } else if (regex_brightnessvalue.exactMatch(value) && entity->supported_features().contains("BRIGHTNESS")) {
+        } else if (_brightnessValueTemplate.exactMatch(value) && entity->supported_features().contains("BRIGHTNESS")) {
             int  brightness = value.toInt();
             bool on = brightness == 100;
             entity->setState(on ? LightDef::ON : LightDef::OFF);

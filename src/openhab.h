@@ -110,9 +110,9 @@ class OpenHAB : public Integration {
     QNetworkAccessManager*  _nam;
     bool                    _flagleaveStandby = false;
     QList<EntityInterface*> _myEntities;  // Entities of this integration
-    QRegExp                 regex_colorvalue =
+    QRegExp                 _colorValueTemplate =
         QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
-    QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
+    QRegExp _brightnessValueTemplate = QRegExp("[1]?[0-9]?[0-9]");
     int     _tries;
     bool    _flagStandby;
     // bool     _flagprocessitems = false;
@@ -122,8 +122,4 @@ class OpenHAB : public Integration {
     OpenHAB*       context_openHab;
     bool           _flagSseConnected = false;
     bool           _flagMoreDataNeeded = false;
-    QJsonDocument  doc;
-    QJsonDocument  pyload;
-    QByteArray     rawData;
-    QByteArrayList splitted;
 };
