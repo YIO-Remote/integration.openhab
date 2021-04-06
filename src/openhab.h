@@ -25,15 +25,16 @@
 #pragma once
 
 #include <QColor>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
-#include <QLoggingCategory>
 #include <QNetworkAccessManager>
+#include <QNetworkConfigurationManager>
+#include <QNetworkInterface>
 #include <QNetworkReply>
-#include <QObject>
 #include <QString>
 #include <QTimer>
-#include <QVariant>
-#include <QProcess>
+
 #include "yio-interface/entities/lightinterface.h"
 #include "yio-interface/entities/mediaplayerinterface.h"
 #include "yio-interface/notificationsinterface.h"
@@ -74,15 +75,15 @@ class OpenHAB : public Integration {
     void enterStandby() override;
 
     void streamFinished(QNetworkReply* reply);
+    void networkManagerFinished(QNetworkReply* reply);
     void streamReceived();
     void onSseTimeout();
     void onNetWorkAccessible(QNetworkAccessManager::NetworkAccessibility accessibility);
 
-
  private:
     void startSse();
-    void getItems(bool first = false);
-    void getSystemInfo(const QJsonDocument& result);
+    void getItems();
+    void getSystemInfo();
     void jsonError(const QString& error);
     void processItem(const QJsonDocument& result);
     void processItems(const QJsonDocument& result, bool first);
@@ -99,18 +100,26 @@ class OpenHAB : public Integration {
     const QString* lookupComplexLightItem(const QString& entityId, LightDef::Attributes attr);
 
  private:
-    QNetworkAccessManager       _sseNetworkManager;
-    QNetworkReply*              _sseReply;
-    QTimer*                     _sseReconnectTimer;
-    QString                     _url;
-    QString                     _token;
-    QNetworkAccessManager       _nam;
-    QList<EntityInterface*>     _myEntities;     // Entities of this integration
-    QRegExp regex_colorvalue = QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?"
-                                       "[0-9]?[0-9]?[0-9]?[0-9]?");
-    QRegExp regex_brightnessvalue = QRegExp("[1]?[0-9]?[0-9]");
-    int                         _tries;
-    bool                        _flagStandby;
-    bool                        _flagOpenHabConnected = false;
-    QObject* context = new QObject(this);
+    QNetworkInterface       _iface;
+    QNetworkAccessManager*  _sseNetworkManager;
+    QNetworkReply*          _sseReply;
+    QTimer*                 _sseReconnectTimer;
+    QString                 _url;
+    QString                 _token;
+    int                     _networktries = 0;
+    QNetworkAccessManager*  _nam;
+    bool                    _flagleaveStandby = false;
+    QList<EntityInterface*> _myEntities;  // Entities of this integration
+    QRegExp                 _colorValueTemplate =
+        QRegExp("[0-9]?[0-9]?[0-9][,][0-9]?[0-9]?[0-9][,][0-9]?[0-9][.]?[0-9]?[0-9]?[0-9]?[0-9]?");
+    QRegExp _brightnessValueTemplate = QRegExp("[1]?[0-9]?[0-9]");
+    int     _tries;
+    bool    _flagStandby;
+    // bool     _flagprocessitems = false;
+    bool _flagOpenHabConnected = false;
+    // QObject* context = new QObject(this);
+    QString        _tempJSONData = "";
+    OpenHAB*       context_openHab;
+    bool           _flagSseConnected = false;
+    bool           _flagMoreDataNeeded = false;
 };
